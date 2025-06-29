@@ -480,78 +480,78 @@ export default function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="create" className="space-y-6">
-            <motion.div variants={slideIn} initial="initial" animate="animate">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Plus className="w-5 h-5" />
-                    Create New Excel Sheet
-                  </CardTitle>
-                  <CardDescription>
-                    Generate new Excel files with AI assistance
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="sheet-name">Sheet Name</Label>
-                      <Input
-                        id="sheet-name"
-                        placeholder="My New Spreadsheet"
-                        className="mt-2"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="data-type">Data Type</Label>
-                      <Input
-                        id="data-type"
-                        placeholder="e.g., Employee Records, Sales Data"
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
+  <motion.div variants={slideIn} initial="initial" animate="animate">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Plus className="w-5 h-5" />
+          Create New Excel Sheet
+        </CardTitle>
+        <CardDescription>
+          Generate new Excel files with AI assistance
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="sheet-name">Sheet Name</Label>
+            <Input
+              id="sheet-name"
+              placeholder="My New Spreadsheet"
+              className="mt-2"
+            />
+          </div>
+          <div>
+            <Label htmlFor="data-type">Data Type</Label>
+            <Input
+              id="data-type"
+              placeholder="e.g., Employee Records, Sales Data"
+              className="mt-2"
+            />
+          </div>
+        </div>
 
-                  <div>
-                    <Label htmlFor="create-prompt">
-                      Describe what you want to create
-                    </Label>
-                    <Textarea
-                      id="create-prompt"
-                      placeholder="e.g., 'Create a monthly budget tracker with categories for income and expenses'"
-                      className="mt-2 min-h-[100px]"
-                    />
-                  </div>
+        <div>
+          <Label htmlFor="create-prompt">
+            Describe what you want to create
+          </Label>
+          <Textarea
+            id="create-prompt"
+            placeholder="e.g., 'Create a monthly budget tracker with categories for income and expenses'"
+            className="mt-2 min-h-[100px]"
+          />
+        </div>
 
-                  {/* Mobile-first responsive button layout */}
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1"
-                    >
-                      <Button
-                        onClick={createNewSheet}
-                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Sheet
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full sm:w-auto sm:min-w-[140px]"
-                    >
-                      <Button variant="outline" className="w-full">
-                        <Brain className="w-4 h-4 mr-2" />
-                        AI Generate
-                      </Button>
-                    </motion.div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </TabsContent>
+        {/* Alternative: Equal width buttons on all screens */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex-1"
+          >
+            <Button
+              onClick={createNewSheet}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Sheet
+            </Button>
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex-1"
+          >
+            <Button variant="outline" className="w-full">
+              <Brain className="w-4 h-4 mr-2" />
+              AI Generate
+            </Button>
+          </motion.div>
+        </div>
+      </CardContent>
+    </Card>
+  </motion.div>
+</TabsContent>
 
           <TabsContent value="ai-chat" className="space-y-6">
             <motion.div variants={slideIn} initial="initial" animate="animate">

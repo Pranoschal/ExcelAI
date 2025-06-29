@@ -10,7 +10,9 @@ export const metadata: Metadata = {
   title: "ExcelAI Pro - Transform Your Excel Experience",
   description:
     "AI-powered Excel management platform for creating, modifying, and analyzing spreadsheets with artificial intelligence.",
-    generator: 'v0.dev'
+   icons: {
+    icon: '/ExcelAi.svg', // or '/icon.png' depending on your asset type
+  },
 }
 
 export default function RootLayout({
