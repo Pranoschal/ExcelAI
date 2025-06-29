@@ -32,7 +32,7 @@ import Link from "next/link";
 import { useDropzone } from "react-dropzone";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { useChat } from '@ai-sdk/react'
+import { useChat } from "@ai-sdk/react";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -73,7 +73,6 @@ export default function DashboardPage() {
     scrollToBottom();
   }, [messages]);
 
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -84,7 +83,6 @@ export default function DashboardPage() {
       "text/csv": [".csv"],
     },
   });
-
 
   const processWithAI = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -132,7 +130,6 @@ export default function DashboardPage() {
         },
       ];
       setProcessedData(sampleData);
-
     } catch (error) {
       console.error("AI processing error:", error);
     } finally {
@@ -525,7 +522,8 @@ export default function DashboardPage() {
                     />
                   </div>
 
-                  <div className="flex gap-4">
+                  {/* Mobile-first responsive button layout */}
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -542,8 +540,9 @@ export default function DashboardPage() {
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      className="w-full sm:w-auto sm:min-w-[140px]"
                     >
-                      <Button variant="outline">
+                      <Button variant="outline" className="w-full">
                         <Brain className="w-4 h-4 mr-2" />
                         AI Generate
                       </Button>
