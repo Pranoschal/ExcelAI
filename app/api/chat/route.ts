@@ -1,20 +1,39 @@
-import { createOpenAI } from "@ai-sdk/openai";
 import { convertToCoreMessages, streamText } from "ai";
 import { NextRequest } from "next/server";
 import { groq } from "@ai-sdk/groq";
+import { experimental_createMCPClient as createMCPClient } from "ai";
+import { Experimental_StdioMCPTransport as StdioMCPTransport } from "ai/mcp-stdio";
+import z from "zod";
 
 export async function POST(req: NextRequest) {
-  const { messages } = await req.json()
+  const { messages } = await req.json();
   const coreMessages = convertToCoreMessages(messages).filter(
     (message) => message.content.length > 0
   );
 
+  const mcpClient = await createMCPClient({
+    transport: new StdioMCPTransport({
+      command: "node",
+      args: ["mcp-server/excel-mcp/dist/index.js"],
+    }),
+  });
+
+  const mcptools = await mcpClient.tools();
+  const tools = {showAllExcelTools : {
+
+  description: 'Displays all the tools available for working with excel',
+  parameters: z.object({}),
+  execute: async () => {
+    return ''
+},
+  ...mcptools
+}}
   const result = await streamText({
     model: groq("qwen-qwq-32b"),
     providerOptions: {
       groq: { reasoningFormat: "parsed" },
     },
-    system : `You are ExcelAI Pro, an intelligent assistant built into a web application. You specialize in working with Excel spreadsheets. Your purpose is to help users:
+    system: `You are ExcelAI Pro, an intelligent assistant built into a web application. You specialize in working with Excel spreadsheets. Your purpose is to help users:
 
         - Create Excel sheets with structured data
         - Modify existing Excel sheets (add, remove, update content)
@@ -33,7 +52,8 @@ export async function POST(req: NextRequest) {
         - 🚫 "Write a story" → Decline
 
         Never break character or act outside your role. Remain focused and helpful within the Excel domain.`,
-    messages : coreMessages
+    messages: coreMessages,
+    tools:tools
   });
 
   return result.toDataStreamResponse();

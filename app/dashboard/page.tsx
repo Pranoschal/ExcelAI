@@ -35,6 +35,7 @@ import { useDropzone } from "react-dropzone";
 import { openai } from "@ai-sdk/openai";
 import { Message, useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
+import ToolsShowcase from "@/components/tool-displayer";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -76,6 +77,10 @@ export default function DashboardPage() {
         block: "end",
       });
     }
+  }, [messages]);
+
+  useEffect(() => {
+    console.log(messages, "MESSAGES");
   }, [messages]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -582,6 +587,13 @@ export default function DashboardPage() {
                                 : "justify-start"
                             }`}
                           >
+                            {/* Avatar for user messages */}
+                            {message.role === "user" && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <User className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+
                             {/* Avatar for non-user messages */}
                             {message.role !== "user" && (
                               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -610,19 +622,30 @@ export default function DashboardPage() {
                                     : "AI Assistant"}
                                 </span>
                               </div>
-
                               {/* Message content */}
                               {message.content && (
                                 <ReactMarkdown>{message.content}</ReactMarkdown>
                               )}
+                              {message.parts &&
+                                message.parts.map((part, index) => {
+                                  if (
+                                    part.type === "tool-invocation" &&
+                                    part.toolInvocation?.state === "result"
+                                  ) {
+                                    const toolName =
+                                      part.toolInvocation.toolName;
+                                    if (toolName == 'showAllExcelTools')
+                                    {
+                                      return (
+                                      <div key={index}>
+                                        <ToolsShowcase />
+                                      </div>
+                                    );
+                                    }
+                                  }
+                                  return null;
+                                })}
                             </div>
-
-                            {/* Avatar for user messages */}
-                            {message.role === "user" && (
-                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                <User className="w-4 h-4 text-white" />
-                              </div>
-                            )}
                           </div>
                         );
                       })}
