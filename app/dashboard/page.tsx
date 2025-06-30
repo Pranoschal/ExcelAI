@@ -27,12 +27,14 @@ import {
   Loader2,
   CheckCircle,
   Home,
+  User,
+  Bot,
 } from "lucide-react";
 import Link from "next/link";
 import { useDropzone } from "react-dropzone";
-import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { useChat } from "@ai-sdk/react";
+import { Message, useChat } from "@ai-sdk/react";
+import ReactMarkdown from "react-markdown";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -57,10 +59,8 @@ export default function DashboardPage() {
     setFiles((prev) => [...prev, ...acceptedFiles]);
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit } = useChat({
-    onResponse(response) {
-      console.log("Got Response", response);
-    },
+  const { messages, input, handleInputChange, handleSubmit, status } = useChat({
+    api: "/api/chat",
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -70,7 +70,12 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
   }, [messages]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -86,8 +91,7 @@ export default function DashboardPage() {
 
   const processWithAI = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!aiPrompt.trim()) return;
+    if (!input.trim()) return;
     setIsProcessing(true);
     try {
       await handleSubmit(e);
@@ -356,7 +360,7 @@ export default function DashboardPage() {
                       whileTap={{ scale: 0.98 }}
                     >
                       <Button
-                        onClick={processWithAI}
+                        // onClick={processWithAI}
                         disabled={isProcessing || !aiPrompt.trim()}
                         className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                       >
@@ -480,78 +484,78 @@ export default function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="create" className="space-y-6">
-  <motion.div variants={slideIn} initial="initial" animate="animate">
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Create New Excel Sheet
-        </CardTitle>
-        <CardDescription>
-          Generate new Excel files with AI assistance
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="sheet-name">Sheet Name</Label>
-            <Input
-              id="sheet-name"
-              placeholder="My New Spreadsheet"
-              className="mt-2"
-            />
-          </div>
-          <div>
-            <Label htmlFor="data-type">Data Type</Label>
-            <Input
-              id="data-type"
-              placeholder="e.g., Employee Records, Sales Data"
-              className="mt-2"
-            />
-          </div>
-        </div>
+            <motion.div variants={slideIn} initial="initial" animate="animate">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="w-5 h-5" />
+                    Create New Excel Sheet
+                  </CardTitle>
+                  <CardDescription>
+                    Generate new Excel files with AI assistance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sheet-name">Sheet Name</Label>
+                      <Input
+                        id="sheet-name"
+                        placeholder="My New Spreadsheet"
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="data-type">Data Type</Label>
+                      <Input
+                        id="data-type"
+                        placeholder="e.g., Employee Records, Sales Data"
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
 
-        <div>
-          <Label htmlFor="create-prompt">
-            Describe what you want to create
-          </Label>
-          <Textarea
-            id="create-prompt"
-            placeholder="e.g., 'Create a monthly budget tracker with categories for income and expenses'"
-            className="mt-2 min-h-[100px]"
-          />
-        </div>
+                  <div>
+                    <Label htmlFor="create-prompt">
+                      Describe what you want to create
+                    </Label>
+                    <Textarea
+                      id="create-prompt"
+                      placeholder="e.g., 'Create a monthly budget tracker with categories for income and expenses'"
+                      className="mt-2 min-h-[100px]"
+                    />
+                  </div>
 
-        {/* Alternative: Equal width buttons on all screens */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex-1"
-          >
-            <Button
-              onClick={createNewSheet}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Sheet
-            </Button>
-          </motion.div>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex-1"
-          >
-            <Button variant="outline" className="w-full">
-              <Brain className="w-4 h-4 mr-2" />
-              AI Generate
-            </Button>
-          </motion.div>
-        </div>
-      </CardContent>
-    </Card>
-  </motion.div>
-</TabsContent>
+                  {/* Alternative: Equal width buttons on all screens */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1"
+                    >
+                      <Button
+                        onClick={createNewSheet}
+                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Sheet
+                      </Button>
+                    </motion.div>
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1"
+                    >
+                      <Button variant="outline" className="w-full">
+                        <Brain className="w-4 h-4 mr-2" />
+                        AI Generate
+                      </Button>
+                    </motion.div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
 
           <TabsContent value="ai-chat" className="space-y-6">
             <motion.div variants={slideIn} initial="initial" animate="animate">
@@ -567,23 +571,68 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="h-64 border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Brain className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 max-w-[80%]">
-                          <p className="text-sm">
-                            Hello! I'm your Excel AI assistant. I can help you
-                            create, modify, and analyze Excel files. What would
-                            you like to work on today?
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    <div className="h-[28vh] sm:h-[60vh] md:h-[50vh] lg:h-[45vh] xl:h-[40vh] 2xl:h-[37vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
+                      {messages.map((message: Message) => {
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex items-start gap-3 mb-4 ${
+                              message.role === "user"
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            {/* Avatar for non-user messages */}
+                            {message.role !== "user" && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Bot className="w-4 h-4 text-white" />
+                              </div>
+                            )}
 
-                    <div className="flex gap-2">
+                            {/* Message bubble */}
+                            <div
+                              className={`rounded-lg p-3 max-w-[80%] ${
+                                message.role === "user"
+                                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                                  : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                              }`}
+                            >
+                              {/* Message header */}
+                              <div className="flex items-center mb-1">
+                                {message.role === "user" ? (
+                                  <User className="h-4 w-4 mr-2" />
+                                ) : (
+                                  <Brain className="h-4 w-4 mr-2" />
+                                )}
+                                <span className="font-semibold text-sm">
+                                  {message.role === "user"
+                                    ? "You"
+                                    : "AI Assistant"}
+                                </span>
+                              </div>
+
+                              {/* Message content */}
+                              {message.content && (
+                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                              )}
+                            </div>
+
+                            {/* Avatar for user messages */}
+                            {message.role === "user" && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <User className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    <form onSubmit={processWithAI} className="flex space-x-2">
                       <Input
+                        type="text"
+                        value={input}
+                        onChange={handleInputChange}
                         placeholder="Ask me anything about Excel..."
                         className="flex-1"
                       />
@@ -591,11 +640,20 @@ export default function DashboardPage() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Button>
-                          <MessageSquare className="w-4 h-4" />
+                        <Button
+                          type="submit"
+                          disabled={
+                            status === "submitted" || status === "streaming"
+                          }
+                        >
+                          {status === "submitted" || status === "streaming" ? (
+                            "Thinking...."
+                          ) : (
+                            <MessageSquare className="w-4 h-4" />
+                          )}
                         </Button>
                       </motion.div>
-                    </div>
+                    </form>
                   </div>
                 </CardContent>
               </Card>
