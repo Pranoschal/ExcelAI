@@ -279,6 +279,7 @@ export default function ToolsShowcase() {
           </div>
         </div>
       </div>
+      {/* <div>HI</div> */}
     </div>
   )
 }
