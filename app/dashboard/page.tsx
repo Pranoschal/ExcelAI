@@ -106,7 +106,7 @@ export default function DashboardPage() {
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
-        behavior: "smooth", // Use "auto" instead of "smooth" for streaming
+        behavior: "auto", // Use "auto" instead of "smooth" for streaming
         block: "end",
       });
     }
