@@ -1,5 +1,6 @@
 "use client";
 
+import { defaultModel, modelID } from "@/ai/providers";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ const slideIn = {
 };
 
 export default function DashboardPage() {
+  const [selectedModel, setSelectedModel] = useState<modelID>(defaultModel);
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
@@ -63,6 +65,9 @@ export default function DashboardPage() {
 
   const { messages, input, handleInputChange, handleSubmit, status } = useChat({
     api: "/api/chat",
+    body: {
+      selectedModel,
+    },
     onError: (error: Error) => {
       const { errorMessage } = JSON.parse(error.message);
       toast("AI Error", {
@@ -94,11 +99,15 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.log(messages);
+  }, [messages]);
+
+  useEffect(() => {
     if (
       messagesEndRef.current &&
       (status === "streaming" || status === "submitted")
     ) {
-      scrollToBottom()
+      scrollToBottom();
     }
   }, [messages, status]);
 
@@ -657,6 +666,17 @@ export default function DashboardPage() {
                               )}
                               {message.parts &&
                                 message.parts.map((part, index) => {
+                                  if (part.type === "reasoning") {
+                                    return (
+                                      ((status==="submitted" || status==="streaming"  )&&<pre key={index} className="max-w-[80%] whitespace-pre-wrap">
+                                        {part.details.map((detail) =>
+                                          detail.type === "text"
+                                            ? detail.text
+                                            : "<redacted>"
+                                        )}
+                                      </pre>)
+                                    );
+                                  }
                                   if (
                                     part.type === "tool-invocation" &&
                                     part.toolInvocation?.state === "result"

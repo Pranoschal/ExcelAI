@@ -4,24 +4,24 @@ import { NextRequest } from "next/server";
 import { groq } from "@ai-sdk/groq";
 import { experimental_createMCPClient as createMCPClient } from "ai";
 import z from "zod";
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { model, modelID } from "@/ai/providers";
 // In your route.ts
 export async function POST(req: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const { messages, selectedModel } = await req.json();
     const coreMessages = convertToCoreMessages(messages).filter(
       (message) => message.content.length > 0
     );
 
     const render_dot_com_url = process.env.RENDER_MCP_URL;
-    
+
     if (!render_dot_com_url) {
       throw new Error("RENDER_MCP_URL environment variable is not set");
     }
 
     const url = new URL(`${render_dot_com_url}/mcp`);
-    
+
     let mcpClient;
     try {
       mcpClient = await createMCPClient({
@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
       });
     } catch (mcpError: unknown) {
       console.error("MCP Client Error:", mcpError);
-      const errorMessage = mcpError instanceof Error ? mcpError.message : String(mcpError);
+      const errorMessage =
+        mcpError instanceof Error ? mcpError.message : String(mcpError);
       throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
     }
 
@@ -38,19 +39,21 @@ export async function POST(req: NextRequest) {
       mcptools = await mcpClient.tools();
     } catch (toolsError: unknown) {
       console.error("MCP Tools Error:", toolsError);
-      const errorMessage = toolsError instanceof Error ? toolsError.message : String(toolsError);
+      const errorMessage =
+        toolsError instanceof Error ? toolsError.message : String(toolsError);
       throw new Error(`Failed to get MCP tools: ${errorMessage}`);
     }
 
     const tools = {
       showAllExcelTools: {
-        description: "When the user asks to display all the tools available for working with excel,or the user says tools or tools please etc",
+        description:
+          "When the user asks to display all the tools available for working with excel,or the user says tools or tools please etc",
         parameters: z.object({}),
         execute: async () => {
           return "";
         },
       },
-      ...mcptools
+      ...mcptools,
     };
 
     const result = await streamText({
@@ -81,23 +84,24 @@ export async function POST(req: NextRequest) {
       tools: tools,
     });
 
-    return result.toDataStreamResponse();
-    
+    return result.toDataStreamResponse({
+      sendReasoning: true,
+    });
   } catch (error: unknown) {
     console.error("API Route Error:", error);
-    
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     // Return a proper error response that the AI SDK can parse
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         errorMessage: errorMessage || "Internal server error",
         type: "api_error",
-      }), 
-      { 
+      }),
+      {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       }
     );
   }
