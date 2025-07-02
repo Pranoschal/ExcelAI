@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const tools = {
       showAllExcelTools: {
-        description: "when the user asks to display all the tools available for working with excel",
+        description: "When the user asks to display all the tools available for working with excel,or the user says tools or tools please etc",
         parameters: z.object({}),
         execute: async () => {
           return "";
