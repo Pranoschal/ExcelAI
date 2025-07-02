@@ -63,8 +63,8 @@ export default function DashboardPage() {
 
   const { messages, input, handleInputChange, handleSubmit, status } = useChat({
     api: "/api/chat",
-    onError : (error:Error)=>{
-      const {errorMessage} = JSON.parse(error.message)
+    onError: (error: Error) => {
+      const { errorMessage } = JSON.parse(error.message);
       toast("AI Error", {
         description: `${errorMessage}`,
         action: {
@@ -88,27 +88,29 @@ export default function DashboardPage() {
         duration: 5000,
         position: "bottom-right",
       });
-    }
+    },
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
+    if (
+      messagesEndRef.current &&
+      (status === "streaming" || status === "submitted")
+    ) {
+      scrollToBottom()
+    }
+  }, [messages, status]);
+
+  // And modify the scrollToBottom function to be more performant:
+  const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
-        behavior: "smooth",
+        behavior: "auto", // Use "auto" instead of "smooth" for streaming
         block: "end",
       });
     }
-  }, [messages]);
-
-  useEffect(() => {
-    console.log(messages, "MESSAGES");
-  }, [messages]);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
