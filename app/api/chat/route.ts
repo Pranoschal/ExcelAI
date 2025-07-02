@@ -1,39 +1,64 @@
+// In your route.ts
 import { convertToCoreMessages, streamText } from "ai";
 import { NextRequest } from "next/server";
 import { groq } from "@ai-sdk/groq";
 import { experimental_createMCPClient as createMCPClient } from "ai";
-import { Experimental_StdioMCPTransport as StdioMCPTransport } from "ai/mcp-stdio";
 import z from "zod";
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
+// In your route.ts
 export async function POST(req: NextRequest) {
-  const { messages } = await req.json();
-  const coreMessages = convertToCoreMessages(messages).filter(
-    (message) => message.content.length > 0
-  );
+  try {
+    const { messages } = await req.json();
+    const coreMessages = convertToCoreMessages(messages).filter(
+      (message) => message.content.length > 0
+    );
 
-  const mcpClient = await createMCPClient({
-    transport: new StdioMCPTransport({
-      command: "node",
-      args: ["mcp-server/excel-mcp/dist/index.js"],
-    }),
-  });
+    const render_dot_com_url = process.env.RENDER_MCP_URL;
+    
+    if (!render_dot_com_url) {
+      throw new Error("RENDER_MCP_URL environment variable is not set");
+    }
 
-  const mcptools = await mcpClient.tools();
-  const tools = {showAllExcelTools : {
+    const url = new URL(`${render_dot_com_url}/mcp`);
+    
+    let mcpClient;
+    try {
+      mcpClient = await createMCPClient({
+        transport: new StreamableHTTPClientTransport(url),
+      });
+    } catch (mcpError: unknown) {
+      console.error("MCP Client Error:", mcpError);
+      const errorMessage = mcpError instanceof Error ? mcpError.message : String(mcpError);
+      throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
+    }
 
-  description: 'Displays all the tools available for working with excel',
-  parameters: z.object({}),
-  execute: async () => {
-    return ''
-},
-  ...mcptools
-}}
-  const result = await streamText({
-    model: groq("qwen-qwq-32b"),
-    providerOptions: {
-      groq: { reasoningFormat: "parsed" },
-    },
-    system: `You are ExcelAI Pro, an intelligent assistant built into a web application. You specialize in working with Excel spreadsheets. Your purpose is to help users:
+    let mcptools;
+    try {
+      mcptools = await mcpClient.tools();
+    } catch (toolsError: unknown) {
+      console.error("MCP Tools Error:", toolsError);
+      const errorMessage = toolsError instanceof Error ? toolsError.message : String(toolsError);
+      throw new Error(`Failed to get MCP tools: ${errorMessage}`);
+    }
+
+    const tools = {
+      showAllExcelTools: {
+        description: "when the user asks to display all the tools available for working with excel",
+        parameters: z.object({}),
+        execute: async () => {
+          return "";
+        },
+      },
+      ...mcptools
+    };
+
+    const result = await streamText({
+      model: groq("qwen-qwq-32b"),
+      providerOptions: {
+        groq: { reasoningFormat: "parsed" },
+      },
+      system: `You are ExcelAI Pro, an intelligent assistant built into a web application. You specialize in working with Excel spreadsheets. Your purpose is to help users:
 
         - Create Excel sheets with structured data
         - Modify existing Excel sheets (add, remove, update content)
@@ -52,9 +77,28 @@ export async function POST(req: NextRequest) {
         - 🚫 "Write a story" → Decline
 
         Never break character or act outside your role. Remain focused and helpful within the Excel domain.`,
-    messages: coreMessages,
-    tools:tools
-  });
+      messages: coreMessages,
+      tools: tools,
+    });
 
-  return result.toDataStreamResponse();
+    return result.toDataStreamResponse();
+    
+  } catch (error: unknown) {
+    console.error("API Route Error:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Return a proper error response that the AI SDK can parse
+    return new Response(
+      JSON.stringify({ 
+        errorMessage: errorMessage || "Internal server error",
+        type: "api_error",
+      }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
 }

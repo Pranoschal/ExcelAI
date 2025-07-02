@@ -36,6 +36,7 @@ import { openai } from "@ai-sdk/openai";
 import { Message, useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import ToolsShowcase from "@/components/tool-displayer";
+import { toast } from "sonner";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -62,6 +63,32 @@ export default function DashboardPage() {
 
   const { messages, input, handleInputChange, handleSubmit, status } = useChat({
     api: "/api/chat",
+    onError : (error:Error)=>{
+      const {errorMessage} = JSON.parse(error.message)
+      toast("AI Error", {
+        description: `${errorMessage}`,
+        action: {
+          label: "Close",
+          onClick: () => console.log("Close clicked"),
+        },
+        // Custom styling to match your dark blue interface
+        className: "bg-slate-800 border-slate-700 text-white ",
+        descriptionClassName: "text-slate-300",
+        actionButtonStyle: {
+          backgroundColor: "#2563eb", // blue-600
+          color: "white",
+          padding: "6px 12px",
+          borderRadius: "6px",
+          border: "none",
+          fontSize: "12px",
+          fontWeight: "500",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+        }, // Animation configuration
+        duration: 5000,
+        position: "bottom-right",
+      });
+    }
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -140,7 +167,7 @@ export default function DashboardPage() {
       ];
       setProcessedData(sampleData);
     } catch (error) {
-      console.error("AI processing error:", error);
+      console.log("AI processing error:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -634,13 +661,12 @@ export default function DashboardPage() {
                                   ) {
                                     const toolName =
                                       part.toolInvocation.toolName;
-                                    if (toolName == 'showAllExcelTools')
-                                    {
+                                    if (toolName == "showAllExcelTools") {
                                       return (
-                                      <div key={index}>
-                                        <ToolsShowcase />
-                                      </div>
-                                    );
+                                        <div key={index}>
+                                          <ToolsShowcase />
+                                        </div>
+                                      );
                                     }
                                   }
                                   return null;
