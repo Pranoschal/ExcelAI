@@ -21,13 +21,13 @@ export const ModelPicker = ({
   return (
     <div className="absolute bottom-2 left-4 flex flex-col gap-2">
       <Select value={selectedModel} onValueChange={setSelectedModel}>
-        <SelectTrigger className="">
+        <SelectTrigger className="w-auto min-w-[140px] sm:min-w-[180px] h-8 sm:h-10 text-xs sm:text-sm bg-background/80 backdrop-blur-sm border-border/50">
           <SelectValue placeholder="Select a model" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent  className="w-auto min-w-[140px] sm:min-w-[180px]">
           <SelectGroup>
             {MODELS.map((modelId) => (
-              <SelectItem key={modelId} value={modelId}>
+              <SelectItem key={modelId} value={modelId} className="whitespace-pre-wrap">
                 {modelId}
               </SelectItem>
             ))}
