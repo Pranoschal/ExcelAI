@@ -38,6 +38,7 @@ import { Message, useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import ToolsShowcase from "@/components/tool-displayer";
 import { toast } from "sonner";
+import { TextArea } from "@/components/customized-textarea";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -63,24 +64,39 @@ export default function DashboardPage() {
     setFiles((prev) => [...prev, ...acceptedFiles]);
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit, status } = useChat({
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    status,
+    isLoading,
+    stop,
+  } = useChat({
     api: "/api/chat",
     body: {
       selectedModel,
     },
     onError: (error: Error) => {
-      const { errorMessage } = JSON.parse(error.message);
+      let errorMessage = "An unexpected error occurred";
+
+      try {
+        const parsed = JSON.parse(error.message);
+        errorMessage = parsed.errorMessage || errorMessage;
+      } catch (parseError) {
+        errorMessage = error.message || errorMessage;
+      }
+
       toast("AI Error", {
-        description: `${errorMessage}`,
+        description: errorMessage,
         action: {
           label: "Close",
           onClick: () => console.log("Close clicked"),
         },
-        // Custom styling to match your dark blue interface
-        className: "bg-slate-800 border-slate-700 text-white ",
+        className: "bg-slate-800 border-slate-700 text-white",
         descriptionClassName: "text-slate-300",
         actionButtonStyle: {
-          backgroundColor: "#2563eb", // blue-600
+          backgroundColor: "#2563eb",
           color: "white",
           padding: "6px 12px",
           borderRadius: "6px",
@@ -89,7 +105,7 @@ export default function DashboardPage() {
           fontWeight: "500",
           cursor: "pointer",
           transition: "all 0.2s ease",
-        }, // Animation configuration
+        },
         duration: 5000,
         position: "bottom-right",
       });
@@ -184,6 +200,49 @@ export default function DashboardPage() {
     }
   };
 
+  // useEffect(() => {
+  //   // Get the last message
+  //   const lastMessage = messages[messages.length - 1];
+  //   console.log("Calling", lastMessage);
+  //   console.log(isLoading, "IS LOADING?");
+  //   console.log(status, "TSTATUS?");
+  //   if (
+  //     lastMessage &&
+  //     lastMessage.role === "assistant" &&
+  //     lastMessage.content &&
+  //     status === "ready"
+  //   ) {
+  //     console.log("Calling API");
+  //     createAudio(lastMessage.content);
+  //   }
+  // }, [messages, status]);
+
+  // const createAudio = async (text: string) => {
+  //   try {
+  //     const response = await fetch("/api/tts", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ text }),
+  //     });
+
+  //     if (!response.ok) {
+  //       throw new Error("Failed to generate speech");
+  //     }
+
+  //     const audioBlob = await response.blob();
+  //     const audioUrl = URL.createObjectURL(audioBlob);
+  //     const audioElement = new Audio(audioUrl);
+
+  //     audioElement.play();
+
+  //     audioElement.addEventListener("ended", () => {
+  //       URL.revokeObjectURL(audioUrl);
+  //     });
+  //   } catch (error) {
+  //     console.error("Error playing audio:", error);
+  //   }
+  // };
+
   const downloadExcel = () => {
     // Simulate Excel download
     const csvContent = processedData
@@ -241,11 +300,11 @@ export default function DashboardPage() {
         </div>
       </motion.header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-4"
         >
           <h1 className="text-3xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-slate-900 to-blue-800 dark:from-slate-100 dark:to-blue-200 bg-clip-text text-transparent">
             Excel AI Workspace
@@ -613,8 +672,9 @@ export default function DashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="h-[28vh] sm:h-[60vh] md:h-[50vh] lg:h-[45vh] xl:h-[40vh] 2xl:h-[37vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
+                  <div className="space-y-2">
+                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto break-words overflow-wrap-anywhere">
+                      {" "}
                       {messages.map((message: Message) => {
                         return (
                           <div
@@ -668,13 +728,19 @@ export default function DashboardPage() {
                                 message.parts.map((part, index) => {
                                   if (part.type === "reasoning") {
                                     return (
-                                      ((status==="submitted" || status==="streaming"  )&&<pre key={index} className="max-w-[80%] whitespace-pre-wrap">
-                                        {part.details.map((detail) =>
-                                          detail.type === "text"
-                                            ? detail.text
-                                            : "<redacted>"
-                                        )}
-                                      </pre>)
+                                      (status === "submitted" ||
+                                        status === "streaming") && (
+                                        <pre
+                                          key={index}
+                                          className="max-w-[80%] whitespace-pre-wrap"
+                                        >
+                                          {part.details.map((detail) =>
+                                            detail.type === "text"
+                                              ? detail.text
+                                              : "<redacted>"
+                                          )}
+                                        </pre>
+                                      )
                                     );
                                   }
                                   if (
@@ -700,7 +766,7 @@ export default function DashboardPage() {
                       <div ref={messagesEndRef} />
                     </div>
                     <form onSubmit={processWithAI} className="flex space-x-2">
-                      <Input
+                      {/* <Input
                         type="text"
                         value={input}
                         onChange={handleInputChange}
@@ -723,7 +789,16 @@ export default function DashboardPage() {
                             <MessageSquare className="w-4 h-4" />
                           )}
                         </Button>
-                      </motion.div>
+                      </motion.div> */}
+                      <TextArea
+                        selectedModel={selectedModel}
+                        setSelectedModel={setSelectedModel}
+                        handleInputChange={handleInputChange}
+                        input={input}
+                        isLoading={isLoading}
+                        status={status}
+                        stop={stop}
+                      />
                     </form>
                   </div>
                 </CardContent>

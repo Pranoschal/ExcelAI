@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     };
 
     const result = await streamText({
-      model: groq("qwen-qwq-32b"),
+      model: model.languageModel(selectedModel),
       providerOptions: {
         groq: { reasoningFormat: "parsed" },
       },
@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       tools: tools,
     });
 
+    console.log(result,'RESULTTTTTTTT')
     return result.toDataStreamResponse({
       sendReasoning: true,
     });
