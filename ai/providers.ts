@@ -29,9 +29,8 @@ const languageModels = {
 //   ),
   "llama-3.1-8b-instant": groq("llama-3.1-8b-instant"),
   "llama-3.3-70b-versatile": groq("llama-3.3-70b-versatile"),
-//    "mistral-saba-24b" : groq("mistral-saba-24b"),
+   "mistral-saba-24b" : groq("mistral-saba-24b"),
    "distil-whisper-large-v3-en" : groq("distil-whisper-large-v3-en"),
-   "gemma2-9b-it" : groq("gemma2-9b-it"),
 //    "meta-llama/llama-4-maverick-17b-128e-instruct" : groq("meta-llama/llama-4-maverick-17b-128e-instruct")
 };
 
