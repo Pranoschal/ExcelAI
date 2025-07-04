@@ -39,6 +39,7 @@ import ReactMarkdown from "react-markdown";
 import ToolsShowcase from "@/components/tool-displayer";
 import { toast } from "sonner";
 import { TextArea } from "@/components/customized-textarea";
+import { UIMessage } from "ai";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -53,9 +54,10 @@ const slideIn = {
 };
 
 export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState<string>("upload");
   const [selectedModel, setSelectedModel] = useState<modelID>(defaultModel);
   const [files, setFiles] = useState<File[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [processedData, setProcessedData] = useState<any[]>([]);
   const [aiResponse, setAiResponse] = useState("");
@@ -66,6 +68,7 @@ export default function DashboardPage() {
 
   const {
     messages,
+    setMessages,
     input,
     handleInputChange,
     handleSubmit,
@@ -110,13 +113,10 @@ export default function DashboardPage() {
         position: "bottom-right",
       });
     },
+    experimental_throttle: 50,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    console.log(messages);
-  }, [messages]);
 
   useEffect(() => {
     if (
@@ -135,6 +135,11 @@ export default function DashboardPage() {
         block: "end",
       });
     }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    console.log("Current tab:", value);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -199,6 +204,10 @@ export default function DashboardPage() {
       setIsProcessing(false);
     }
   };
+
+  useEffect(() => {
+    setMessages([]);
+  }, [activeTab]);
 
   // useEffect(() => {
   //   // Get the last message
@@ -314,7 +323,11 @@ export default function DashboardPage() {
           </p>
         </motion.div>
 
-        <Tabs defaultValue="upload" className="space-y-6">
+        <Tabs
+          value="upload"
+          onValueChange={handleTabChange}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload className="w-4 h-4" />
@@ -446,18 +459,95 @@ export default function DashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="ai-prompt">AI Instructions</Label>
-                      <Textarea
-                        id="ai-prompt"
-                        placeholder="e.g., 'Analyze sales data and create a summary report' or 'Generate employee performance metrics'"
-                        value={aiPrompt}
-                        onChange={(e) => setAiPrompt(e.target.value)}
-                        className="mt-2 min-h-[100px]"
-                      />
-                    </div>
+                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto break-words overflow-wrap-anywhere">
+                      {" "}
+                      {messages.map((message: Message) => {
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex items-start gap-3 mb-4 ${
+                              message.role === "user"
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            {/* Avatar for user messages */}
+                            {message.role === "user" && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <User className="w-4 h-4 text-white" />
+                              </div>
+                            )}
 
-                    <motion.div
+                            {/* Avatar for non-user messages */}
+                            {message.role !== "user" && (
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Bot className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+
+                            {/* Message bubble */}
+                            <div
+                              className={`rounded-lg p-3 max-w-[80%] ${
+                                message.role === "user"
+                                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                                  : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                              }`}
+                            >
+                              {/* Message header */}
+                              <div className="flex items-center mb-1">
+                                {message.role === "user" ? (
+                                  <User className="h-4 w-4 mr-2" />
+                                ) : (
+                                  <Brain className="h-4 w-4 mr-2" />
+                                )}
+                                <span className="font-semibold text-sm">
+                                  {message.role === "user"
+                                    ? "You"
+                                    : "AI Assistant"}
+                                </span>
+                              </div>
+                              {/* Message content */}
+                              {message.content && (
+                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                              )}
+                              {message.parts &&
+                                message.parts.map((part, index) => {
+                                  if (
+                                    part.type === "tool-invocation" &&
+                                    part.toolInvocation?.state === "result"
+                                  ) {
+                                    const toolName =
+                                      part.toolInvocation.toolName;
+                                    if (toolName == "showAllExcelTools") {
+                                      return (
+                                        <div key={index}>
+                                          <ToolsShowcase />
+                                        </div>
+                                      );
+                                    }
+                                  }
+                                  return null;
+                                })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    <form onSubmit={processWithAI} className="flex space-x-2">
+                      <div className="w-full">
+                        <TextArea
+                          selectedModel={selectedModel}
+                          setSelectedModel={setSelectedModel}
+                          handleInputChange={handleInputChange}
+                          input={input}
+                          isLoading={isLoading}
+                          status={status}
+                          stop={stop}
+                        />
+                      </div>
+                    </form>
+                    {/* <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
@@ -478,7 +568,7 @@ export default function DashboardPage() {
                           </>
                         )}
                       </Button>
-                    </motion.div>
+                    </motion.div> */}
 
                     <AnimatePresence>
                       {aiResponse && (
@@ -726,23 +816,23 @@ export default function DashboardPage() {
                               )}
                               {message.parts &&
                                 message.parts.map((part, index) => {
-                                  if (part.type === "reasoning") {
-                                    return (
-                                      (status === "submitted" ||
-                                        status === "streaming") && (
-                                        <pre
-                                          key={index}
-                                          className="max-w-[80%] whitespace-pre-wrap"
-                                        >
-                                          {part.details.map((detail) =>
-                                            detail.type === "text"
-                                              ? detail.text
-                                              : "<redacted>"
-                                          )}
-                                        </pre>
-                                      )
-                                    );
-                                  }
+                                  // if (part.type === "reasoning") {
+                                  //   return (
+                                  //     (status === "submitted" ||
+                                  //       status === "streaming") && (
+                                  //       <pre
+                                  //         key={index}
+                                  //         className="max-w-[80%] whitespace-pre-wrap"
+                                  //       >
+                                  //         {part.details.map((detail) =>
+                                  //           detail.type === "text"
+                                  //             ? detail.text
+                                  //             : "<redacted>"
+                                  //         )}
+                                  //       </pre>
+                                  //     )
+                                  //   );
+                                  // }
                                   if (
                                     part.type === "tool-invocation" &&
                                     part.toolInvocation?.state === "result"

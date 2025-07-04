@@ -6,20 +6,37 @@ import {
 } from "ai";
 
 const languageModels = {
-//   "meta-llama/llama-4-scout-17b-16e-instruct": groq(
-//     "meta-llama/llama-4-scout-17b-16e-instruct",
-//   ),
-//   "llama-3.1-8b-instant": groq("llama-3.1-8b-instant"),
-  "deepseek-r1-distill-llama-70b": wrapLanguageModel({
+    "qwen-qwq-32b" : wrapLanguageModel({
+    middleware: extractReasoningMiddleware({
+      tagName: "think",
+    }),
+    model: groq("qwen-qwq-32b"),
+  }),
+  "qwen/qwen3-32b" :  wrapLanguageModel({
+    middleware: extractReasoningMiddleware({
+      tagName: "think",
+    }),
+    model: groq("qwen/qwen3-32b"),
+  }),
+   "deepseek-r1-distill-llama-70b": wrapLanguageModel({
     middleware: extractReasoningMiddleware({
       tagName: "think",
     }),
     model: groq("deepseek-r1-distill-llama-70b"),
   }),
-//   "llama-3.3-70b-versatile": groq("llama-3.3-70b-versatile"),
-  "qwen-qwq-32b" : groq("qwen-qwq-32b"),
-  "mistral-saba-24b" : groq("mistral-saba-24b")
+//   "meta-llama/llama-4-scout-17b-16e-instruct": groq(
+//     "meta-llama/llama-4-scout-17b-16e-instruct",
+//   ),
+  "llama-3.1-8b-instant": groq("llama-3.1-8b-instant"),
+  "llama-3.3-70b-versatile": groq("llama-3.3-70b-versatile"),
+//    "mistral-saba-24b" : groq("mistral-saba-24b"),
+   "distil-whisper-large-v3-en" : groq("distil-whisper-large-v3-en"),
+   "gemma2-9b-it" : groq("gemma2-9b-it"),
+//    "meta-llama/llama-4-maverick-17b-128e-instruct" : groq("meta-llama/llama-4-maverick-17b-128e-instruct")
 };
+
+// Reasoning Models
+export const reasoningModelNames = ["qwen-qwq-32b","qwen/qwen3-32b","deepseek-r1-distill-llama-70b"]
 
 export const model = customProvider({
   languageModels,

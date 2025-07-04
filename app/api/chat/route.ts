@@ -1,11 +1,12 @@
 // In your route.ts
-import { convertToCoreMessages, streamText } from "ai";
+import { convertToCoreMessages, smoothStream, streamText } from "ai";
 import { NextRequest } from "next/server";
 import { groq } from "@ai-sdk/groq";
 import { experimental_createMCPClient as createMCPClient } from "ai";
 import z from "zod";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { model, modelID } from "@/ai/providers";
+import { reasoningModelNames } from "@/ai/providers";
 // In your route.ts
 export async function POST(req: NextRequest) {
   try {
@@ -58,9 +59,11 @@ export async function POST(req: NextRequest) {
 
     const result = await streamText({
       model: model.languageModel(selectedModel),
-      providerOptions: {
-        groq: { reasoningFormat: "parsed" },
-      },
+      ...(selectedModel in reasoningModelNames && {
+        providerOptions: {
+          groq: { reasoningFormat: "raw" },
+        },
+      }),
       system: `You are ExcelAI Pro, an intelligent assistant built into a web application. You specialize in working with Excel spreadsheets. Your purpose is to help users:
 
         - Create Excel sheets with structured data
@@ -82,9 +85,13 @@ export async function POST(req: NextRequest) {
         Never break character or act outside your role. Remain focused and helpful within the Excel domain.`,
       messages: coreMessages,
       tools: tools,
+      experimental_transform: [
+        smoothStream({
+          chunking: "word",
+        }),
+      ],
     });
 
-    console.log(result,'RESULTTTTTTTT')
     return result.toDataStreamResponse({
       sendReasoning: true,
     });
