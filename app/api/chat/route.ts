@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
       throw new Error("RENDER_MCP_URL environment variable is not set");
     }
 
-    // const url = new URL(`${render_dot_com_url}/mcp`);
-    const url = new URL(` http://localhost:5050/mcp`)
+    const url = new URL(`${render_dot_com_url}/mcp`);
+    // const url = new URL(` http://localhost:5050/mcp`)
 
     let mcpClient;
     try {
