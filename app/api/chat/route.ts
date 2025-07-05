@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
     }
 
     const url = new URL(`${render_dot_com_url}/mcp`);
-    // const url = new URL(` http://localhost:5050/mcp`)
 
     let mcpClient;
     try {
