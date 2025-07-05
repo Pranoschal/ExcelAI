@@ -65,57 +65,51 @@ export default function DashboardPage() {
   const [aiResponse, setAiResponse] = useState("");
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const validExtensions = [".xlsx", ".xls", ".csv"];
+  const validExtensions = [".xlsx", ".xls", ".csv"];
 
-    try {
-      const filteredFiles = acceptedFiles.filter((file) => {
-        const ext = file.name
-          .substring(file.name.lastIndexOf("."))
-          .toLowerCase();
-
-        if (!validExtensions.includes(ext)) {
-          throw new Error(`Unsupported file type: ${ext}`);
-        }
-        return true;
-      });
-      setFiles((prev) => [...prev, ...filteredFiles]);
-
-      // Upload files to server
-      const formData = new FormData();
-
-      filteredFiles.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setUploadedFiles((prev) => [...prev, ...result.files]);
-        toast("Files uploaded successfully!", {
-          className: "bg-green-800 border-green-700 text-white",
-          duration: 3000,
-          position: "bottom-right",
-        });
+  try {
+    const filteredFiles = acceptedFiles.filter((file) => {
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+      if (!validExtensions.includes(ext)) {
+        throw new Error(`Unsupported file type: ${ext}`);
       }
-    } catch (error) {
-      console.error("File validation error:", error);
-      toast("File upload error", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Invalid file uploaded,only xlsx, xls and csv supported.",
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
+      return true;
+    });
+
+    setFiles((prev) => [...prev, ...filteredFiles]);
+    
+    // Upload files to server
+    const formData = new FormData();
+    filteredFiles.forEach((file) => {
+      formData.append('files', file);
+    });
+    
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      setUploadedFiles((prev) => [...prev, ...result.files]);
+      toast("Files uploaded successfully!", {
+        className: "bg-green-800 border-green-700 text-white",
         duration: 3000,
         position: "bottom-right",
       });
     }
-  }, []);
+  } catch (error) {
+    console.error("File validation error:", error);
+    toast("File upload error", {
+      description: error instanceof Error ? error.message : "Invalid file uploaded,only xlsx, xls and csv supported.",
+      className: "bg-slate-800 border-slate-700 text-white",
+      descriptionClassName: "text-slate-300",
+      duration: 3000,
+      position: "bottom-right",
+    });
+  }
+}, []);
 
   const {
     messages,
@@ -182,10 +176,6 @@ export default function DashboardPage() {
     }
   }, [messages, status]);
 
-  useEffect(() => {
-    console.log(files, "FILES");
-  }, [files]);
-
   // And modify the scrollToBottom function to be more performant:
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -198,7 +188,6 @@ export default function DashboardPage() {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    console.log("Current tab:", value);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -229,6 +218,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setMessages([]);
   }, [activeTab]);
+
 
   // useEffect(() => {
   //   // Get the last message

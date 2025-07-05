@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       const fileList = uploadedFiles.map((f: any) => 
         `"${f.originalName}" (path: ${f.filepath})`
       ).join(', ');
-      
+      console.log('FILE LIST',fileList)
       systemMessage += `\n\nAvailable uploaded files: ${fileList}
       
 When users ask to read, analyze, or work with these files, use the appropriate tools with the exact filepath provided above.`;
