@@ -35,11 +35,12 @@ import Link from "next/link";
 import { useDropzone } from "react-dropzone";
 import { openai } from "@ai-sdk/openai";
 import { Message, useChat } from "@ai-sdk/react";
-import ReactMarkdown from "react-markdown";
+import Markdown from "react-markdown";
 import ToolsShowcase from "@/components/tool-displayer";
 import { toast } from "sonner";
 import { TextArea } from "@/components/customized-textarea";
 import { UIMessage } from "ai";
+import { ReasoningMessagePart } from "@/components/reasoning";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -57,13 +58,63 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<string>("upload");
   const [selectedModel, setSelectedModel] = useState<modelID>(defaultModel);
   const [files, setFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [processedData, setProcessedData] = useState<any[]>([]);
   const [aiResponse, setAiResponse] = useState("");
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles((prev) => [...prev, ...acceptedFiles]);
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const validExtensions = [".xlsx", ".xls", ".csv"];
+
+    try {
+      const filteredFiles = acceptedFiles.filter((file) => {
+        const ext = file.name
+          .substring(file.name.lastIndexOf("."))
+          .toLowerCase();
+
+        if (!validExtensions.includes(ext)) {
+          throw new Error(`Unsupported file type: ${ext}`);
+        }
+        return true;
+      });
+      setFiles((prev) => [...prev, ...filteredFiles]);
+
+      // Upload files to server
+      const formData = new FormData();
+
+      filteredFiles.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setUploadedFiles((prev) => [...prev, ...result.files]);
+        toast("Files uploaded successfully!", {
+          className: "bg-green-800 border-green-700 text-white",
+          duration: 3000,
+          position: "bottom-right",
+        });
+      }
+    } catch (error) {
+      console.error("File validation error:", error);
+      toast("File upload error", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Invalid file uploaded,only xlsx, xls and csv supported.",
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    }
   }, []);
 
   const {
@@ -79,6 +130,7 @@ export default function DashboardPage() {
     api: "/api/chat",
     body: {
       selectedModel,
+      uploadedFiles,
     },
     onError: (error: Error) => {
       let errorMessage = "An unexpected error occurred";
@@ -109,7 +161,7 @@ export default function DashboardPage() {
           cursor: "pointer",
           transition: "all 0.2s ease",
         },
-        duration: 5000,
+        duration: 3000,
         position: "bottom-right",
       });
     },
@@ -119,6 +171,9 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.log(messages, "Messages");
+  }, [messages]);
+  useEffect(() => {
     if (
       messagesEndRef.current &&
       (status === "streaming" || status === "submitted")
@@ -126,6 +181,10 @@ export default function DashboardPage() {
       scrollToBottom();
     }
   }, [messages, status]);
+
+  useEffect(() => {
+    console.log(files, "FILES");
+  }, [files]);
 
   // And modify the scrollToBottom function to be more performant:
   const scrollToBottom = () => {
@@ -157,47 +216,9 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!input.trim()) return;
     setIsProcessing(true);
+
     try {
       await handleSubmit(e);
-      // Simulate processed data
-      const sampleData = [
-        {
-          id: 1,
-          name: "John Doe",
-          email: "john@example.com",
-          department: "Engineering",
-          salary: 75000,
-        },
-        {
-          id: 2,
-          name: "Jane Smith",
-          email: "jane@example.com",
-          department: "Marketing",
-          salary: 65000,
-        },
-        {
-          id: 3,
-          name: "Mike Johnson",
-          email: "mike@example.com",
-          department: "Sales",
-          salary: 70000,
-        },
-        {
-          id: 4,
-          name: "Sarah Wilson",
-          email: "sarah@example.com",
-          department: "HR",
-          salary: 60000,
-        },
-        {
-          id: 5,
-          name: "David Brown",
-          email: "david@example.com",
-          department: "Finance",
-          salary: 80000,
-        },
-      ];
-      setProcessedData(sampleData);
     } catch (error) {
       console.log("AI processing error:", error);
     } finally {
@@ -506,12 +527,22 @@ export default function DashboardPage() {
                                     : "AI Assistant"}
                                 </span>
                               </div>
-                              {/* Message content */}
-                              {message.content && (
-                                <ReactMarkdown>{message.content}</ReactMarkdown>
-                              )}
                               {message.parts &&
                                 message.parts.map((part, index) => {
+                                  if (part.type === "reasoning") {
+                                  
+                                    return (
+                                      <ReasoningMessagePart
+                                        key={`${message.id}-${index}`}
+                                        // @ts-expect-error export ReasoningUIPart
+                                        part={part}
+                                        isReasoning={
+                                          status === "streaming" &&
+                                          index === (message.parts?.length ?? 0) - 1
+                                        }
+                                      />
+                                    );
+                                  }
                                   if (
                                     part.type === "tool-invocation" &&
                                     part.toolInvocation?.state === "result"
@@ -528,6 +559,11 @@ export default function DashboardPage() {
                                   }
                                   return null;
                                 })}
+                              {/* Message content */}
+                              {message.content && (
+                                <Markdown>{message.content}</Markdown>
+                              )}
+                              
                             </div>
                           </div>
                         );
@@ -812,7 +848,7 @@ export default function DashboardPage() {
                               </div>
                               {/* Message content */}
                               {message.content && (
-                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                                <Markdown>{message.content}</Markdown>
                               )}
                               {message.parts &&
                                 message.parts.map((part, index) => {

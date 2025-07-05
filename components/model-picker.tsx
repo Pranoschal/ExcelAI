@@ -19,7 +19,6 @@ export const ModelPicker = ({
   selectedModel,
   setSelectedModel,
 }: ModelPickerProps) => {
-    console.log(reasoningModelNames)
   return (
     <div className="absolute bottom-2 left-4 flex flex-col gap-2">
       <Select value={selectedModel} onValueChange={setSelectedModel}>
