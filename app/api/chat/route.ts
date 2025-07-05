@@ -11,7 +11,6 @@ import { reasoningModelNames } from "@/ai/providers";
 export async function POST(req: NextRequest) {
   try {
     const { messages, selectedModel, files,uploadedFiles } = await req.json();
-    console.log('Uploaded',uploadedFiles)
     const coreMessages = convertToCoreMessages(messages).filter(
       (message) => message.content.length > 0
     );

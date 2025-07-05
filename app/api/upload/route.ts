@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll('files') as File[];
     
     // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = path.join(process.cwd(), 'fileUploads');
     await mkdir(uploadsDir, { recursive: true });
     
     const uploadedFiles = [];
