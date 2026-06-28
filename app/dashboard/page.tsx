@@ -1,6 +1,6 @@
 "use client";
 
-import { defaultModel, modelID } from "@/ai/providers";
+import { useModels } from "@/hooks/use-models";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,30 @@ const slideIn = {
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<string>("upload");
-  const [selectedModel, setSelectedModel] = useState<modelID>(defaultModel);
+  const { models, defaultModel, loading: modelsLoading, error: modelsError } =
+    useModels();
+  const [selectedModel, setSelectedModel] = useState("");
+
+  useEffect(() => {
+    if (!defaultModel || models.length === 0) return;
+
+    const isValidSelection = models.some((model) => model.id === selectedModel);
+    if (!selectedModel || !isValidSelection) {
+      setSelectedModel(defaultModel);
+    }
+  }, [defaultModel, models, selectedModel]);
+
+  useEffect(() => {
+    if (!modelsError) return;
+
+    toast("Failed to load AI models", {
+      description: modelsError,
+      className: "bg-slate-800 border-slate-700 text-white",
+      descriptionClassName: "text-slate-300",
+      duration: 5000,
+      position: "bottom-right",
+    });
+  }, [modelsError]);
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -335,7 +358,7 @@ export default function DashboardPage() {
         </motion.div>
 
         <Tabs
-          value="upload"
+          value={activeTab}
           onValueChange={handleTabChange}
           className="space-y-6"
         >
@@ -563,6 +586,8 @@ export default function DashboardPage() {
                     <form onSubmit={processWithAI} className="flex space-x-2">
                       <div className="w-full">
                         <TextArea
+                          models={models}
+                          modelsLoading={modelsLoading}
                           selectedModel={selectedModel}
                           setSelectedModel={setSelectedModel}
                           handleInputChange={handleInputChange}
@@ -907,6 +932,8 @@ export default function DashboardPage() {
                         </Button>
                       </motion.div> */}
                       <TextArea
+                        models={models}
+                        modelsLoading={modelsLoading}
                         selectedModel={selectedModel}
                         setSelectedModel={setSelectedModel}
                         handleInputChange={handleInputChange}

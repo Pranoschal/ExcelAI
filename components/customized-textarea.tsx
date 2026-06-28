@@ -1,6 +1,6 @@
-import { modelID } from "@/ai/providers";
+import type { GroqModelInfo } from "@/ai/types";
 import { Textarea as ShadcnTextarea } from "@/components/ui/textarea";
-import { ArrowUp, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { ModelPicker } from "./model-picker";
 import { Button } from "./ui/button";
 
@@ -10,8 +10,10 @@ interface InputProps {
   isLoading: boolean;
   status: string;
   stop: () => void;
-  selectedModel: modelID;
-  setSelectedModel: (model: modelID) => void;
+  models: GroqModelInfo[];
+  modelsLoading?: boolean;
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
 }
 
 export const TextArea = ({
@@ -20,6 +22,8 @@ export const TextArea = ({
   isLoading,
   status,
   stop,
+  models,
+  modelsLoading = false,
   selectedModel,
   setSelectedModel,
 }: InputProps) => {
@@ -45,6 +49,8 @@ export const TextArea = ({
       />
 
       <ModelPicker
+        models={models}
+        loading={modelsLoading}
         setSelectedModel={setSelectedModel}
         selectedModel={selectedModel}
       />
@@ -77,7 +83,7 @@ export const TextArea = ({
       ) : (
         <Button
           type="submit"
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || !input.trim() || !selectedModel}
           className="absolute right-2 bottom-2 rounded-full"
         >
           <MessageSquare className="w-4 h-4" />

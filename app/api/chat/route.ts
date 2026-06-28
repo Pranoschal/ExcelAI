@@ -1,13 +1,11 @@
-// In your route.ts
 import { convertToCoreMessages, smoothStream, streamText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
-import { groq } from "@ai-sdk/groq";
 import { experimental_createMCPClient as createMCPClient } from "ai";
 import z from "zod";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { model, modelID } from "@/ai/providers";
-import { reasoningModelNames } from "@/ai/providers";
-// In your route.ts
+import { resolveChatModel } from "@/ai/groq-models";
+import { getLanguageModel } from "@/ai/providers";
+import { pingMcpHealth } from "@/lib/mcp-health";
 export async function POST(req: NextRequest) {
   try {
     const { messages, selectedModel, files,uploadedFiles } = await req.json();
@@ -22,6 +20,11 @@ export async function POST(req: NextRequest) {
     }
 
     const url = new URL(`${render_dot_com_url}/mcp`);
+
+    const warmup = await pingMcpHealth(render_dot_com_url, { timeoutMs: 90_000 });
+    if (!warmup.ok) {
+      console.warn("MCP warmup ping failed before chat:", warmup);
+    }
 
     let mcpClient;
     try {
@@ -90,11 +93,13 @@ When users ask to read, analyze, or work with these files, use the appropriate t
     }
     
 
+    const { modelId, reasoning } = await resolveChatModel(selectedModel);
+
     const result = await streamText({
-      model: model.languageModel(selectedModel),
-      ...(selectedModel in reasoningModelNames && {
+      model: getLanguageModel(modelId),
+      ...(reasoning && {
         providerOptions: {
-          groq: { reasoningFormat: "raw" },
+          groq: { reasoningFormat: "parsed" },
         },
       }),
       system: systemMessage,
@@ -109,6 +114,13 @@ When users ask to read, analyze, or work with these files, use the appropriate t
 
     return result.toDataStreamResponse({
       sendReasoning: true,
+      getErrorMessage: (error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.toLowerCase().includes("model") && message.toLowerCase().includes("decommissioned")) {
+          return "The selected AI model is no longer available. Please choose a different model from the dropdown.";
+        }
+        return message || "Failed to generate a response. Please try another model.";
+      },
     });
   } catch (error: unknown) {
     console.error("API Route Error:", error);
