@@ -86,6 +86,7 @@ export default function DashboardPage() {
   }, [modelsError]);
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [processedData, setProcessedData] = useState<any[]>([]);
@@ -114,6 +115,9 @@ export default function DashboardPage() {
       return true;
     });
 
+    if (filteredFiles.length === 0) return;
+
+    setIsUploading(true);
     setFiles((prev) => [...prev, ...filteredFiles]);
     
     // Upload files to server
@@ -130,12 +134,18 @@ export default function DashboardPage() {
     const result = await response.json();
     
     if (result.success) {
-      setUploadedFiles((prev) => [...prev, ...result.files]);
+      setUploadedFiles((prev) => {
+        const next = [...prev, ...result.files];
+        uploadedFilesRef.current = next;
+        return next;
+      });
       toast("Files uploaded successfully!", {
         className: "bg-green-800 border-green-700 text-white",
         duration: 3000,
         position: "bottom-right",
       });
+    } else {
+      throw new Error(result.error || "Upload failed");
     }
   } catch (error) {
     console.error("File validation error:", error);
@@ -146,15 +156,22 @@ export default function DashboardPage() {
       duration: 3000,
       position: "bottom-right",
     });
+  } finally {
+    setIsUploading(false);
   }
 }, []);
 
   const { messages, setMessages, sendMessage, status, stop } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      body: () => ({
-        selectedModel: selectedModelRef.current,
-        uploadedFiles: uploadedFilesRef.current,
+      prepareSendMessagesRequest: ({ messages, id, body }) => ({
+        body: {
+          ...body,
+          id,
+          messages,
+          selectedModel: selectedModelRef.current,
+          uploadedFiles: uploadedFilesRef.current,
+        },
       }),
     }),
     onError: (error: Error) => {
@@ -237,12 +254,44 @@ export default function DashboardPage() {
   const processWithAI = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
+
+    if (isUploading) {
+      toast("Please wait", {
+        description: "Your file is still uploading.",
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      return;
+    }
+
+    if (files.length > 0 && uploadedFiles.length === 0) {
+      toast("Upload incomplete", {
+        description: "Wait for the file upload to finish before asking the AI to analyze it.",
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
       const text = input;
       setInput("");
-      await sendMessage({ text });
+      // Pass files/model on each request so the API always gets current values
+      await sendMessage(
+        { text },
+        {
+          body: {
+            selectedModel,
+            uploadedFiles,
+          },
+        }
+      );
     } catch (error) {
       console.log("AI processing error:", error);
     } finally {
@@ -453,7 +502,7 @@ export default function DashboardPage() {
                     </motion.div>
 
                     <AnimatePresence>
-                      {files.length > 0 && (
+                      {(files.length > 0 || uploadedFiles.length > 0) && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
@@ -463,9 +512,14 @@ export default function DashboardPage() {
                           <Label className="text-sm font-medium">
                             Uploaded Files:
                           </Label>
-                          {files.map((file, index) => (
+                          {isUploading && (
+                            <p className="text-xs text-slate-500">
+                              Uploading to server…
+                            </p>
+                          )}
+                          {uploadedFiles.map((file, index) => (
                             <motion.div
-                              key={index}
+                              key={file.filename || index}
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: index * 0.1 }}
@@ -473,13 +527,28 @@ export default function DashboardPage() {
                             >
                               <CheckCircle className="w-4 h-4 text-green-500" />
                               <span className="text-sm truncate">
-                                {file.name}
+                                {file.originalName}
                               </span>
                               <Badge variant="secondary" className="text-xs">
                                 {(file.size / 1024).toFixed(1)} KB
                               </Badge>
                             </motion.div>
                           ))}
+                          {files.length > uploadedFiles.length &&
+                            files.slice(uploadedFiles.length).map((file, index) => (
+                              <motion.div
+                                key={`pending-${index}`}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg opacity-70"
+                              >
+                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                <span className="text-sm truncate">{file.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  uploading…
+                                </Badge>
+                              </motion.div>
+                            ))}
                         </motion.div>
                       )}
                     </AnimatePresence>
