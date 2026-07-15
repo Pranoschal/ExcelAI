@@ -131,22 +131,31 @@ export default function DashboardPage() {
       body: formData,
     });
     
-    const result = await response.json();
-    
-    if (result.success) {
-      setUploadedFiles((prev) => {
-        const next = [...prev, ...result.files];
-        uploadedFilesRef.current = next;
-        return next;
-      });
-      toast("Files uploaded successfully!", {
-        className: "bg-green-800 border-green-700 text-white",
-        duration: 3000,
-        position: "bottom-right",
-      });
-    } else {
-      throw new Error(result.error || "Upload failed");
+    let result: any = null;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error(
+        `Upload failed with status ${response.status}. Please try again.`
+      );
     }
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result?.error || `Upload failed with status ${response.status}`
+      );
+    }
+
+    setUploadedFiles((prev) => {
+      const next = [...prev, ...result.files];
+      uploadedFilesRef.current = next;
+      return next;
+    });
+    toast("Files uploaded successfully!", {
+      className: "bg-green-800 border-green-700 text-white",
+      duration: 3000,
+      position: "bottom-right",
+    });
   } catch (error) {
     console.error("File validation error:", error);
     toast("File upload error", {

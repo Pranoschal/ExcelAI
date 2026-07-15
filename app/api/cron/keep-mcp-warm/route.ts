@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
     console.error("MCP keep-warm ping failed:", result);
     return NextResponse.json(
       {
-        ok: false,
         ...result,
         timestamp: new Date().toISOString(),
       },
@@ -36,7 +35,6 @@ export async function GET(req: NextRequest) {
   );
 
   return NextResponse.json({
-    ok: true,
     ...result,
     timestamp: new Date().toISOString(),
   });

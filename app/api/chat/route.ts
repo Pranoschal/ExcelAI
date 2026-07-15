@@ -97,14 +97,24 @@ export async function POST(req: NextRequest) {
 
     if (uploadedFiles && uploadedFiles.length > 0) {
       const fileList = uploadedFiles
-        .map((f: { originalName: string; filepath: string }) =>
-          `"${f.originalName}" (path: ${f.filepath})`
+        .map(
+          (f: {
+            originalName: string;
+            filepath?: string;
+            relativePath?: string;
+            filename?: string;
+            storagePath?: string;
+          }) => {
+            const toolPath =
+              f.storagePath || f.relativePath || f.filename || f.filepath;
+            return `"${f.originalName}" (path: ${toolPath})`;
+          }
         )
         .join(", ");
       console.log("FILE LIST", fileList);
       systemMessage += `\n\nAvailable uploaded files: ${fileList}
-      
-When users ask to read, analyze, or work with these files, use the appropriate tools with the exact filepath provided above.`;
+
+These paths are storage object keys in Supabase. When calling Excel/CSV tools, pass the path value exactly as given (for example: 1784...-sales.csv). Do not invent local disk paths.`;
     } else {
       systemMessage += `\n\nNo files are currently uploaded. Ask the user to upload Excel files (.xlsx, .xls, .csv) to get started with file analysis.`;
     }
