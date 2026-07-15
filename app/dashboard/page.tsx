@@ -33,13 +33,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useDropzone } from "react-dropzone";
-import { openai } from "@ai-sdk/openai";
-import { Message, useChat } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
 import Markdown from "react-markdown";
 import ToolsShowcase from "@/components/tool-displayer";
 import { toast } from "sonner";
 import { TextArea } from "@/components/customized-textarea";
-import { UIMessage } from "ai";
+import {
+  DefaultChatTransport,
+  getToolName,
+  isToolUIPart,
+  type UIMessage,
+} from "ai";
 import { ReasoningMessagePart } from "@/components/reasoning";
 
 const fadeInUp = {
@@ -86,6 +90,17 @@ export default function DashboardPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [processedData, setProcessedData] = useState<any[]>([]);
   const [aiResponse, setAiResponse] = useState("");
+  const [input, setInput] = useState("");
+  const selectedModelRef = useRef(selectedModel);
+  const uploadedFilesRef = useRef(uploadedFiles);
+
+  useEffect(() => {
+    selectedModelRef.current = selectedModel;
+  }, [selectedModel]);
+
+  useEffect(() => {
+    uploadedFilesRef.current = uploadedFiles;
+  }, [uploadedFiles]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
   const validExtensions = [".xlsx", ".xls", ".csv"];
@@ -134,28 +149,21 @@ export default function DashboardPage() {
   }
 }, []);
 
-  const {
-    messages,
-    setMessages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    status,
-    isLoading,
-    stop,
-  } = useChat({
-    api: "/api/chat",
-    body: {
-      selectedModel,
-      uploadedFiles,
-    },
+  const { messages, setMessages, sendMessage, status, stop } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: () => ({
+        selectedModel: selectedModelRef.current,
+        uploadedFiles: uploadedFilesRef.current,
+      }),
+    }),
     onError: (error: Error) => {
       let errorMessage = "An unexpected error occurred";
 
       try {
         const parsed = JSON.parse(error.message);
         errorMessage = parsed.errorMessage || errorMessage;
-      } catch (parseError) {
+      } catch {
         errorMessage = error.message || errorMessage;
       }
 
@@ -184,6 +192,8 @@ export default function DashboardPage() {
     },
     experimental_throttle: 50,
   });
+
+  const isLoading = status === "submitted" || status === "streaming";
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -230,7 +240,9 @@ export default function DashboardPage() {
     setIsProcessing(true);
 
     try {
-      await handleSubmit(e);
+      const text = input;
+      setInput("");
+      await sendMessage({ text });
     } catch (error) {
       console.log("AI processing error:", error);
     } finally {
@@ -495,7 +507,7 @@ export default function DashboardPage() {
                   <CardContent className="space-y-4">
                     <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto break-words overflow-wrap-anywhere">
                       {" "}
-                      {messages.map((message: Message) => {
+                      {messages.map((message: UIMessage) => {
                         return (
                           <div
                             key={message.id}
@@ -540,43 +552,39 @@ export default function DashboardPage() {
                                     : "AI Assistant"}
                                 </span>
                               </div>
-                              {message.parts &&
-                                message.parts.map((part, index) => {
+                              {message.parts.map((part, index) => {
                                   if (part.type === "reasoning") {
-                                  
                                     return (
                                       <ReasoningMessagePart
                                         key={`${message.id}-${index}`}
-                                        // @ts-expect-error export ReasoningUIPart
                                         part={part}
                                         isReasoning={
                                           status === "streaming" &&
-                                          index === (message.parts?.length ?? 0) - 1
+                                          index === message.parts.length - 1
                                         }
                                       />
                                     );
                                   }
                                   if (
-                                    part.type === "tool-invocation" &&
-                                    part.toolInvocation?.state === "result"
+                                    isToolUIPart(part) &&
+                                    part.state === "output-available" &&
+                                    getToolName(part) === "showAllExcelTools"
                                   ) {
-                                    const toolName =
-                                      part.toolInvocation.toolName;
-                                    if (toolName == "showAllExcelTools") {
-                                      return (
-                                        <div key={index}>
-                                          <ToolsShowcase />
-                                        </div>
-                                      );
-                                    }
+                                    return (
+                                      <div key={`${message.id}-${index}`}>
+                                        <ToolsShowcase />
+                                      </div>
+                                    );
+                                  }
+                                  if (part.type === "text" && part.text) {
+                                    return (
+                                      <Markdown key={`${message.id}-${index}`}>
+                                        {part.text}
+                                      </Markdown>
+                                    );
                                   }
                                   return null;
                                 })}
-                              {/* Message content */}
-                              {message.content && (
-                                <Markdown>{message.content}</Markdown>
-                              )}
-                              
                             </div>
                           </div>
                         );
@@ -590,7 +598,7 @@ export default function DashboardPage() {
                           modelsLoading={modelsLoading}
                           selectedModel={selectedModel}
                           setSelectedModel={setSelectedModel}
-                          handleInputChange={handleInputChange}
+                          setInput={setInput}
                           input={input}
                           isLoading={isLoading}
                           status={status}
@@ -816,7 +824,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto break-words overflow-wrap-anywhere">
                       {" "}
-                      {messages.map((message: Message) => {
+                      {messages.map((message: UIMessage) => {
                         return (
                           <div
                             key={message.id}
@@ -826,21 +834,18 @@ export default function DashboardPage() {
                                 : "justify-start"
                             }`}
                           >
-                            {/* Avatar for user messages */}
                             {message.role === "user" && (
                               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
                                 <User className="w-4 h-4 text-white" />
                               </div>
                             )}
 
-                            {/* Avatar for non-user messages */}
                             {message.role !== "user" && (
                               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
                                 <Bot className="w-4 h-4 text-white" />
                               </div>
                             )}
 
-                            {/* Message bubble */}
                             <div
                               className={`rounded-lg p-3 max-w-[80%] ${
                                 message.role === "user"
@@ -848,7 +853,6 @@ export default function DashboardPage() {
                                   : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                               }`}
                             >
-                              {/* Message header */}
                               <div className="flex items-center mb-1">
                                 {message.role === "user" ? (
                                   <User className="h-4 w-4 mr-2" />
@@ -861,42 +865,36 @@ export default function DashboardPage() {
                                     : "AI Assistant"}
                                 </span>
                               </div>
-                              {/* Message content */}
-                              {message.content && (
-                                <Markdown>{message.content}</Markdown>
-                              )}
-                              {message.parts &&
-                                message.parts.map((part, index) => {
-                                  // if (part.type === "reasoning") {
-                                  //   return (
-                                  //     (status === "submitted" ||
-                                  //       status === "streaming") && (
-                                  //       <pre
-                                  //         key={index}
-                                  //         className="max-w-[80%] whitespace-pre-wrap"
-                                  //       >
-                                  //         {part.details.map((detail) =>
-                                  //           detail.type === "text"
-                                  //             ? detail.text
-                                  //             : "<redacted>"
-                                  //         )}
-                                  //       </pre>
-                                  //     )
-                                  //   );
-                                  // }
+                              {message.parts.map((part, index) => {
+                                  if (part.type === "reasoning") {
+                                    return (
+                                      <ReasoningMessagePart
+                                        key={`${message.id}-${index}`}
+                                        part={part}
+                                        isReasoning={
+                                          status === "streaming" &&
+                                          index === message.parts.length - 1
+                                        }
+                                      />
+                                    );
+                                  }
                                   if (
-                                    part.type === "tool-invocation" &&
-                                    part.toolInvocation?.state === "result"
+                                    isToolUIPart(part) &&
+                                    part.state === "output-available" &&
+                                    getToolName(part) === "showAllExcelTools"
                                   ) {
-                                    const toolName =
-                                      part.toolInvocation.toolName;
-                                    if (toolName == "showAllExcelTools") {
-                                      return (
-                                        <div key={index}>
-                                          <ToolsShowcase />
-                                        </div>
-                                      );
-                                    }
+                                    return (
+                                      <div key={`${message.id}-${index}`}>
+                                        <ToolsShowcase />
+                                      </div>
+                                    );
+                                  }
+                                  if (part.type === "text" && part.text) {
+                                    return (
+                                      <Markdown key={`${message.id}-${index}`}>
+                                        {part.text}
+                                      </Markdown>
+                                    );
                                   }
                                   return null;
                                 })}
@@ -907,36 +905,12 @@ export default function DashboardPage() {
                       <div ref={messagesEndRef} />
                     </div>
                     <form onSubmit={processWithAI} className="flex space-x-2">
-                      {/* <Input
-                        type="text"
-                        value={input}
-                        onChange={handleInputChange}
-                        placeholder="Ask me anything about Excel..."
-                        className="flex-1"
-                      />
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Button
-                          type="submit"
-                          disabled={
-                            status === "submitted" || status === "streaming"
-                          }
-                        >
-                          {status === "submitted" || status === "streaming" ? (
-                            "Thinking...."
-                          ) : (
-                            <MessageSquare className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </motion.div> */}
                       <TextArea
                         models={models}
                         modelsLoading={modelsLoading}
                         selectedModel={selectedModel}
                         setSelectedModel={setSelectedModel}
-                        handleInputChange={handleInputChange}
+                        setInput={setInput}
                         input={input}
                         isLoading={isLoading}
                         status={status}

@@ -9,8 +9,8 @@ import { ChevronDownIcon, ChevronUpIcon, SpinnerIcon } from "./icons";
 
 interface ReasoningPart {
   type: "reasoning";
-  reasoning: string;
-  details: Array<{ type: "text"; text: string }>;
+  text: string;
+  state?: "streaming" | "done";
 }
 
 interface ReasoningMessagePartProps {
@@ -62,7 +62,7 @@ export function ReasoningMessagePart({
               "cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200",
               {
                 "dark:bg-zinc-800 bg-zinc-200": isExpanded,
-              },
+              }
             )}
             onClick={() => {
               setIsExpanded(!isExpanded);
@@ -84,16 +84,7 @@ export function ReasoningMessagePart({
             variants={variants}
             transition={{ duration: 0.2, ease: "easeInOut" }}
           >
-            {part.details.map((detail, detailIndex) =>
-              detail.type === "text" ? (
-                <Markdown key={detailIndex} components={markdownComponents}>
-                  {detail.text}
-                </Markdown>
-              ) : (
-                "<redacted>"
-              ),
-            )}
-
+            <Markdown components={markdownComponents}>{part.text}</Markdown>
           </motion.div>
         )}
       </AnimatePresence>

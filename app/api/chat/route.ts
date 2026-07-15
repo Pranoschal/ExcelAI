@@ -1,16 +1,30 @@
-import { convertToCoreMessages, smoothStream, streamText } from "ai";
+import {
+  convertToModelMessages,
+  smoothStream,
+  stepCountIs,
+  streamText,
+  tool,
+  type ModelMessage,
+} from "ai";
+import { createMCPClient } from "@ai-sdk/mcp";
 import { NextRequest, NextResponse } from "next/server";
-import { experimental_createMCPClient as createMCPClient } from "ai";
 import z from "zod";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { resolveChatModel } from "@/ai/groq-models";
 import { getLanguageModel } from "@/ai/providers";
 import { pingMcpHealth } from "@/lib/mcp-health";
+
+function hasMessageContent(message: ModelMessage): boolean {
+  if (typeof message.content === "string") {
+    return message.content.length > 0;
+  }
+  return Array.isArray(message.content) && message.content.length > 0;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { messages, selectedModel, files,uploadedFiles } = await req.json();
-    const coreMessages = convertToCoreMessages(messages).filter(
-      (message) => message.content.length > 0
+    const { messages, selectedModel, uploadedFiles } = await req.json();
+    const modelMessages = (await convertToModelMessages(messages)).filter(
+      hasMessageContent
     );
 
     const render_dot_com_url = process.env.RENDER_MCP_URL;
@@ -18,8 +32,6 @@ export async function POST(req: NextRequest) {
     if (!render_dot_com_url) {
       throw new Error("RENDER_MCP_URL environment variable is not set");
     }
-
-    const url = new URL(`${render_dot_com_url}/mcp`);
 
     const warmup = await pingMcpHealth(render_dot_com_url, { timeoutMs: 90_000 });
     if (!warmup.ok) {
@@ -29,7 +41,10 @@ export async function POST(req: NextRequest) {
     let mcpClient;
     try {
       mcpClient = await createMCPClient({
-        transport: new StreamableHTTPClientTransport(url),
+        transport: {
+          type: "http",
+          url: `${render_dot_com_url}/mcp`,
+        },
       });
     } catch (mcpError: unknown) {
       console.error("MCP Client Error:", mcpError);
@@ -49,17 +64,17 @@ export async function POST(req: NextRequest) {
     }
 
     const tools = {
-      showAllExcelTools: {
+      showAllExcelTools: tool({
         description:
           "When the user asks to display all the tools available for working with excel,or the user says tools or tools please etc",
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async () => {
           return "";
         },
-      },
+      }),
       ...mcptools,
     };
-    // Build system message based on uploaded files
+
     let systemMessage = `You are ExcelAI Pro, an intelligent assistant built into a web application. You specialize in working with Excel spreadsheets. Your purpose is to help users:
 
       - Create Excel sheets with structured data
@@ -81,21 +96,22 @@ export async function POST(req: NextRequest) {
       Never break character or act outside your role. Remain focused and helpful within the Excel domain.`;
 
     if (uploadedFiles && uploadedFiles.length > 0) {
-      const fileList = uploadedFiles.map((f: any) => 
-        `"${f.originalName}" (path: ${f.filepath})`
-      ).join(', ');
-      console.log('FILE LIST',fileList)
+      const fileList = uploadedFiles
+        .map((f: { originalName: string; filepath: string }) =>
+          `"${f.originalName}" (path: ${f.filepath})`
+        )
+        .join(", ");
+      console.log("FILE LIST", fileList);
       systemMessage += `\n\nAvailable uploaded files: ${fileList}
       
 When users ask to read, analyze, or work with these files, use the appropriate tools with the exact filepath provided above.`;
     } else {
       systemMessage += `\n\nNo files are currently uploaded. Ask the user to upload Excel files (.xlsx, .xls, .csv) to get started with file analysis.`;
     }
-    
 
     const { modelId, reasoning } = await resolveChatModel(selectedModel);
 
-    const result = await streamText({
+    const result = streamText({
       model: getLanguageModel(modelId),
       ...(reasoning && {
         providerOptions: {
@@ -103,20 +119,25 @@ When users ask to read, analyze, or work with these files, use the appropriate t
         },
       }),
       system: systemMessage,
-      messages: coreMessages,
-      tools: tools,
-      experimental_transform: [
-        smoothStream({
-          chunking: "word",
-        }),
-      ],
+      messages: modelMessages,
+      tools,
+      stopWhen: stepCountIs(5),
+      experimental_transform: smoothStream({
+        chunking: "word",
+      }),
+      onFinish: async () => {
+        await mcpClient.close().catch(() => undefined);
+      },
     });
 
-    return result.toDataStreamResponse({
+    return result.toUIMessageStreamResponse({
       sendReasoning: true,
-      getErrorMessage: (error) => {
+      onError: (error) => {
         const message = error instanceof Error ? error.message : String(error);
-        if (message.toLowerCase().includes("model") && message.toLowerCase().includes("decommissioned")) {
+        if (
+          message.toLowerCase().includes("model") &&
+          message.toLowerCase().includes("decommissioned")
+        ) {
           return "The selected AI model is no longer available. Please choose a different model from the dropdown.";
         }
         return message || "Failed to generate a response. Please try another model.";
@@ -127,7 +148,6 @@ When users ask to read, analyze, or work with these files, use the appropriate t
 
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Return a proper error response that the AI SDK can parse
     return new NextResponse(
       JSON.stringify({
         errorMessage: errorMessage || "Internal server error",

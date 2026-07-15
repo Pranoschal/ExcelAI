@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 
 interface InputProps {
   input: string;
-  handleInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  setInput: (value: string) => void;
   isLoading: boolean;
   status: string;
   stop: () => void;
@@ -18,7 +18,7 @@ interface InputProps {
 
 export const TextArea = ({
   input,
-  handleInputChange,
+  setInput,
   isLoading,
   status,
   stop,
@@ -34,14 +34,12 @@ export const TextArea = ({
         value={input}
         autoFocus
         placeholder={"Say something..."}
-        // @ts-expect-error err
-        onChange={handleInputChange}
+        onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (input.trim() && !isLoading) {
-              // @ts-expect-error err
-              const form = e.target.closest("form");
+            if (input?.trim() && !isLoading) {
+              const form = e.currentTarget.closest("form");
               if (form) form.requestSubmit();
             }
           }
@@ -83,7 +81,7 @@ export const TextArea = ({
       ) : (
         <Button
           type="submit"
-          disabled={isLoading || !input.trim() || !selectedModel}
+          disabled={isLoading || !input?.trim() || !selectedModel}
           className="absolute right-2 bottom-2 rounded-full"
         >
           <MessageSquare className="w-4 h-4" />
