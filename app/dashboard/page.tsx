@@ -1,5 +1,7 @@
 "use client";
 
+import { useAssistantTts } from "@/hooks/use-assistant-tts";
+import { isTtsError } from "@/lib/tts-errors";
 import { useModels } from "@/hooks/use-models";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +30,8 @@ import {
   Loader2,
   CheckCircle,
   Home,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import Link from "next/link";
 import { useDropzone } from "react-dropzone";
@@ -86,6 +90,7 @@ export default function DashboardPage() {
   const [sheetName, setSheetName] = useState("");
   const [dataType, setDataType] = useState("");
   const [createPrompt, setCreatePrompt] = useState("");
+  const [ttsEnabled, setTtsEnabled] = useState(false);
   const selectedModelRef = useRef(selectedModel);
   const uploadedFilesRef = useRef(uploadedFiles);
 
@@ -215,6 +220,39 @@ export default function DashboardPage() {
 
   const isLoading = status === "submitted" || status === "streaming";
 
+  useAssistantTts({
+    messages,
+    status,
+    enabled: ttsEnabled,
+    onError: (error) => {
+      if (isTtsError(error) && error.code === "model_terms_required") {
+        toast("Accept Groq TTS terms to enable read-aloud", {
+          description:
+            "Open the Groq playground once, accept the Orpheus model terms, then try again.",
+          action: error.actionUrl
+            ? {
+                label: "Open Groq",
+                onClick: () => window.open(error.actionUrl, "_blank", "noopener"),
+              }
+            : undefined,
+          className: "bg-slate-800 border-slate-700 text-white",
+          descriptionClassName: "text-slate-300",
+          duration: 8000,
+          position: "bottom-right",
+        });
+        return;
+      }
+
+      toast("Text-to-speech failed", {
+        description: error.message,
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 5000,
+        position: "bottom-right",
+      });
+    },
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -312,49 +350,6 @@ export default function DashboardPage() {
     }
     prevTabRef.current = activeTab;
   }, [activeTab, setMessages]);
-
-  // useEffect(() => {
-  //   // Get the last message
-  //   const lastMessage = messages[messages.length - 1];
-  //   console.log("Calling", lastMessage);
-  //   console.log(isLoading, "IS LOADING?");
-  //   console.log(status, "TSTATUS?");
-  //   if (
-  //     lastMessage &&
-  //     lastMessage.role === "assistant" &&
-  //     lastMessage.content &&
-  //     status === "ready"
-  //   ) {
-  //     console.log("Calling API");
-  //     createAudio(lastMessage.content);
-  //   }
-  // }, [messages, status]);
-
-  // const createAudio = async (text: string) => {
-  //   try {
-  //     const response = await fetch("/api/tts", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ text }),
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error("Failed to generate speech");
-  //     }
-
-  //     const audioBlob = await response.blob();
-  //     const audioUrl = URL.createObjectURL(audioBlob);
-  //     const audioElement = new Audio(audioUrl);
-
-  //     audioElement.play();
-
-  //     audioElement.addEventListener("ended", () => {
-  //       URL.revokeObjectURL(audioUrl);
-  //     });
-  //   } catch (error) {
-  //     console.error("Error playing audio:", error);
-  //   }
-  // };
 
   const downloadExcel = () => {
     // Simulate Excel download
@@ -641,13 +636,31 @@ export default function DashboardPage() {
               >
                 <Card className="h-full min-w-0">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Brain className="w-5 h-5" />
-                      AI Processing
-                    </CardTitle>
-                    <CardDescription>
-                      Tell AI what you want to do with your data
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Brain className="w-5 h-5" />
+                          AI Processing
+                        </CardTitle>
+                        <CardDescription>
+                          Tell AI what you want to do with your data
+                        </CardDescription>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setTtsEnabled((v) => !v)}
+                      >
+                        {ttsEnabled ? (
+                          <VolumeX className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Volume2 className="w-4 h-4 mr-2" />
+                        )}
+                        {ttsEnabled ? "Mute responses" : "Read aloud"}
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4 min-w-0">
                     <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full min-w-0 mx-auto border rounded-lg p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto overflow-x-hidden break-words">
@@ -897,13 +910,31 @@ export default function DashboardPage() {
             <motion.div variants={slideIn} initial="initial" animate="animate">
               <Card className="min-w-0">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5" />
-                    AI Assistant
-                  </CardTitle>
-                  <CardDescription>
-                    Chat with AI about your Excel needs
-                  </CardDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5" />
+                        AI Assistant
+                      </CardTitle>
+                      <CardDescription>
+                        Chat with AI about your Excel needs
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => setTtsEnabled((v) => !v)}
+                    >
+                      {ttsEnabled ? (
+                        <VolumeX className="w-4 h-4 mr-2" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 mr-2" />
+                      )}
+                      {ttsEnabled ? "Mute responses" : "Read aloud"}
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="min-w-0">
                   <div className="space-y-2">
