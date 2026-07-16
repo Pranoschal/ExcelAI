@@ -7,7 +7,8 @@ interface PreparedAudio {
 
 interface QueueItem {
   generation: number;
-  audio: Promise<PreparedAudio>;
+  text: string;
+  prepare?: Promise<PreparedAudio>;
   resolve: () => void;
   reject: (error: Error) => void;
 }
@@ -19,6 +20,11 @@ let queueGeneration = 0;
 let isProcessingQueue = false;
 const queue: QueueItem[] = [];
 const activeRequests = new Set<AbortController>();
+const SPEAKABLE_TEXT_PATTERN = /[\p{L}\p{N}]/u;
+
+function hasSpeakableText(text: string): boolean {
+  return SPEAKABLE_TEXT_PATTERN.test(text);
+}
 
 async function generateAudio(
   text: string,
@@ -52,6 +58,23 @@ async function generateAudio(
   }
 }
 
+function startPrepare(item: QueueItem): Promise<PreparedAudio> {
+  if (item.prepare) return item.prepare;
+
+  const controller = new AbortController();
+  activeRequests.add(controller);
+
+  item.prepare = generateAudio(item.text, controller).then(
+    (blob) => ({ blob }),
+    (error) => ({
+      error:
+        error instanceof Error ? error : new Error("TTS generation failed"),
+    })
+  );
+
+  return item.prepare;
+}
+
 function playAudioBlob(blob: Blob): Promise<void> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
@@ -76,7 +99,8 @@ function playAudioBlob(blob: Blob): Promise<void> {
     };
 
     const handleEnded = () => finish();
-    const handleError = () => finish(new TtsError("Unable to play generated speech"));
+    const handleError = () =>
+      finish(new TtsError("Unable to play generated speech"));
 
     currentAudio = audio;
     currentAudioUrl = url;
@@ -107,7 +131,7 @@ async function processQueue(): Promise<void> {
         continue;
       }
 
-      const prepared = await item.audio;
+      const prepared = await startPrepare(item);
       if (item.generation !== queueGeneration) {
         item.resolve();
         continue;
@@ -117,6 +141,12 @@ async function processQueue(): Promise<void> {
         stopTts();
         item.reject(prepared.error);
         continue;
+      }
+
+      // Prefetch the next chunk while this one plays (at most one ahead).
+      const next = queue[0];
+      if (next && next.generation === queueGeneration) {
+        void startPrepare(next);
       }
 
       try {
@@ -137,22 +167,14 @@ async function processQueue(): Promise<void> {
 
 export function enqueueTts(text: string): Promise<void> {
   const normalizedText = text.trim();
-  if (!normalizedText) return Promise.resolve();
-
-  const controller = new AbortController();
-  activeRequests.add(controller);
-
-  const audio = generateAudio(normalizedText, controller).then(
-    (blob) => ({ blob }),
-    (error) => ({
-      error: error instanceof Error ? error : new Error("TTS generation failed"),
-    })
-  );
+  if (!normalizedText || !hasSpeakableText(normalizedText)) {
+    return Promise.resolve();
+  }
 
   const completion = new Promise<void>((resolve, reject) => {
     queue.push({
       generation: queueGeneration,
-      audio,
+      text: normalizedText,
       resolve,
       reject,
     });

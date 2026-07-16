@@ -3,6 +3,7 @@ import Groq from "groq-sdk";
 const ORPHEUS_MODEL = "canopylabs/orpheus-v1-english";
 const ORPHEUS_TERMS_URL =
   "https://console.groq.com/playground?model=canopylabs%2Forpheus-v1-english";
+const SPEAKABLE_TEXT_PATTERN = /[\p{L}\p{N}]/u;
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -45,15 +46,22 @@ export async function POST(request: Request) {
   try {
     const { text } = await request.json();
 
-    if (!text) {
-      return Response.json({ error: "Text is required" }, { status: 400 });
+    if (
+      typeof text !== "string" ||
+      !text.trim() ||
+      !SPEAKABLE_TEXT_PATTERN.test(text)
+    ) {
+      return Response.json(
+        { error: "Text must contain at least one letter or digit" },
+        { status: 400 }
+      );
     }
 
     const wav = await groq.audio.speech.create({
       model: ORPHEUS_MODEL,
       voice: "diana",
       response_format: "wav",
-      input: text,
+      input: text.trim(),
     });
 
     const buffer = Buffer.from(await wav.arrayBuffer());
