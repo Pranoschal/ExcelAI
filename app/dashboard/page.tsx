@@ -1,63 +1,41 @@
 "use client";
 
-import { useAssistantTts } from "@/hooks/use-assistant-tts";
-import { isTtsError } from "@/lib/tts-errors";
-import { useModels } from "@/hooks/use-models";
-import { useState, useCallback, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Upload,
-  Download,
-  FileSpreadsheet,
-  Brain,
-  Sparkles,
-  Plus,
-  Table,
-  MessageSquare,
-  Loader2,
-  CheckCircle,
-  Home,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
-import Link from "next/link";
-import { useDropzone } from "react-dropzone";
-import { useChat } from "@ai-sdk/react";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { MessageSquare, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { TextArea } from "@/components/customized-textarea";
-import { DefaultChatTransport } from "ai";
-import { ChatMessages } from "@/components/chat-messages";
-
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
-};
-
-const slideIn = {
-  initial: { opacity: 0, x: -20 },
-  animate: { opacity: 1, x: 0 },
-  transition: { duration: 0.3 },
-};
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AiChatTab } from "@/components/dashboard/ai-chat-tab";
+import { CreateTab } from "@/components/dashboard/create-tab";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { UploadTab } from "@/components/dashboard/upload-tab";
+import { useDashboardChat } from "@/hooks/use-dashboard-chat";
+import { useFileUpload } from "@/hooks/use-file-upload";
+import { useModels } from "@/hooks/use-models";
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<string>("upload");
+  const [activeTab, setActiveTab] = useState("upload");
   const { models, defaultModel, loading: modelsLoading, error: modelsError } =
     useModels();
   const [selectedModel, setSelectedModel] = useState("");
+
+  const {
+    files,
+    uploadedFiles,
+    isUploading,
+    getRootProps,
+    getInputProps,
+    isDragActive,
+  } = useFileUpload();
+
+  const chat = useDashboardChat({
+    selectedModel,
+    uploadedFiles,
+    files,
+    isUploading,
+    activeTab,
+    setActiveTab,
+  });
 
   useEffect(() => {
     if (!defaultModel || models.length === 0) return;
@@ -79,401 +57,27 @@ export default function DashboardPage() {
       position: "bottom-right",
     });
   }, [modelsError]);
-  const [files, setFiles] = useState<File[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [processedData, setProcessedData] = useState<any[]>([]);
-  const [aiResponse, setAiResponse] = useState("");
-  const [input, setInput] = useState("");
-  const [sheetName, setSheetName] = useState("");
-  const [dataType, setDataType] = useState("");
-  const [createPrompt, setCreatePrompt] = useState("");
-  const [ttsEnabled, setTtsEnabled] = useState(false);
-  const selectedModelRef = useRef(selectedModel);
-  const uploadedFilesRef = useRef(uploadedFiles);
 
-  useEffect(() => {
-    selectedModelRef.current = selectedModel;
-  }, [selectedModel]);
-
-  useEffect(() => {
-    uploadedFilesRef.current = uploadedFiles;
-  }, [uploadedFiles]);
-
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-  const validExtensions = [".xlsx", ".xls", ".csv"];
-
-  try {
-    const filteredFiles = acceptedFiles.filter((file) => {
-      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
-      if (!validExtensions.includes(ext)) {
-        throw new Error(`Unsupported file type: ${ext}`);
-      }
-      return true;
-    });
-
-    if (filteredFiles.length === 0) return;
-
-    setIsUploading(true);
-    setFiles((prev) => [...prev, ...filteredFiles]);
-    
-    // Upload files to server
-    const formData = new FormData();
-    filteredFiles.forEach((file) => {
-      formData.append('files', file);
-    });
-    
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
-    
-    let result: any = null;
-    try {
-      result = await response.json();
-    } catch {
-      throw new Error(
-        `Upload failed with status ${response.status}. Please try again.`
-      );
-    }
-
-    if (!response.ok || !result.success) {
-      throw new Error(
-        result?.error || `Upload failed with status ${response.status}`
-      );
-    }
-
-    setUploadedFiles((prev) => {
-      const next = [...prev, ...result.files];
-      uploadedFilesRef.current = next;
-      return next;
-    });
-    toast("Files uploaded successfully!", {
-      className: "bg-green-800 border-green-700 text-white",
-      duration: 3000,
-      position: "bottom-right",
-    });
-  } catch (error) {
-    console.error("File validation error:", error);
-    toast("File upload error", {
-      description: error instanceof Error ? error.message : "Invalid file uploaded,only xlsx, xls and csv supported.",
-      className: "bg-slate-800 border-slate-700 text-white",
-      descriptionClassName: "text-slate-300",
-      duration: 3000,
-      position: "bottom-right",
-    });
-  } finally {
-    setIsUploading(false);
-  }
-}, []);
-
-  const { messages, setMessages, sendMessage, status, stop } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      prepareSendMessagesRequest: ({ messages, id, body }) => ({
-        body: {
-          ...body,
-          id,
-          messages,
-          selectedModel: selectedModelRef.current,
-          uploadedFiles: uploadedFilesRef.current,
-        },
-      }),
-    }),
-    onError: (error: Error) => {
-      let errorMessage = "An unexpected error occurred";
-
-      try {
-        const parsed = JSON.parse(error.message);
-        errorMessage = parsed.errorMessage || errorMessage;
-      } catch {
-        errorMessage = error.message || errorMessage;
-      }
-
-      toast("AI Error", {
-        description: errorMessage,
-        action: {
-          label: "Close",
-          onClick: () => console.log("Close clicked"),
-        },
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        actionButtonStyle: {
-          backgroundColor: "#2563eb",
-          color: "white",
-          padding: "6px 12px",
-          borderRadius: "6px",
-          border: "none",
-          fontSize: "12px",
-          fontWeight: "500",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-        },
-        duration: 3000,
-        position: "bottom-right",
-      });
-    },
-    experimental_throttle: 50,
-  });
-
-  const isLoading = status === "submitted" || status === "streaming";
-
-  useAssistantTts({
-    messages,
-    status,
-    enabled: ttsEnabled,
-    onError: (error) => {
-      if (isTtsError(error) && error.code === "model_terms_required") {
-        toast("Accept Groq TTS terms to enable read-aloud", {
-          description:
-            "Open the Groq playground once, accept the Orpheus model terms, then try again.",
-          action: error.actionUrl
-            ? {
-                label: "Open Groq",
-                onClick: () => window.open(error.actionUrl, "_blank", "noopener"),
-              }
-            : undefined,
-          className: "bg-slate-800 border-slate-700 text-white",
-          descriptionClassName: "text-slate-300",
-          duration: 8000,
-          position: "bottom-right",
-        });
-        return;
-      }
-
-      toast("Text-to-speech failed", {
-        description: error.message,
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        duration: 5000,
-        position: "bottom-right",
-      });
-    },
-  });
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    console.log(messages, "Messages");
-  }, [messages]);
-  useEffect(() => {
-    if (
-      messagesEndRef.current &&
-      (status === "streaming" || status === "submitted")
-    ) {
-      scrollToBottom();
-    }
-  }, [messages, status]);
-
-  // And modify the scrollToBottom function to be more performant:
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
-        behavior: "auto", // Use "auto" instead of "smooth" for streaming
-        block: "end",
-      });
-    }
-  };
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
-        ".xlsx",
-      ],
-      "application/vnd.ms-excel": [".xls"],
-      "text/csv": [".csv"],
-    },
-  });
-
-  const processWithAI = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    if (isUploading) {
-      toast("Please wait", {
-        description: "Your file is still uploading.",
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        duration: 3000,
-        position: "bottom-right",
-      });
-      return;
-    }
-
-    if (files.length > 0 && uploadedFiles.length === 0) {
-      toast("Upload incomplete", {
-        description: "Wait for the file upload to finish before asking the AI to analyze it.",
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        duration: 3000,
-        position: "bottom-right",
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const text = input;
-      setInput("");
-      // Pass files/model on each request so the API always gets current values
-      await sendMessage(
-        { text },
-        {
-          body: {
-            selectedModel,
-            uploadedFiles,
-          },
-        }
-      );
-    } catch (error) {
-      console.log("AI processing error:", error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const prevTabRef = useRef(activeTab);
-
-  useEffect(() => {
-    // Clear chat only when leaving the AI Assistant tab, so Create → AI
-    // handoff keeps the new generation request visible.
-    if (prevTabRef.current === "ai-chat" && activeTab !== "ai-chat") {
-      setMessages([]);
-    }
-    prevTabRef.current = activeTab;
-  }, [activeTab, setMessages]);
-
-  const downloadExcel = () => {
-    // Simulate Excel download
-    const csvContent = processedData
-      .map((row) => Object.values(row).join(","))
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "processed_data.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleCreateSheet = async (withSampleData: boolean) => {
-    if (!createPrompt.trim()) {
-      toast("Describe what you want to create", {
-        description: "Add a short description before creating a sheet.",
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        duration: 3000,
-        position: "bottom-right",
-      });
-      return;
-    }
-
-    if (isLoading) {
-      toast("Please wait", {
-        description: "The AI is still working on a previous request.",
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        duration: 3000,
-        position: "bottom-right",
-      });
-      return;
-    }
-
-    const safeName = (sheetName.trim() || "new-sheet")
-      .replace(/[<>:"/\\|?*]/g, "-")
-      .replace(/\s+/g, "-");
-    const fileName = safeName.toLowerCase().endsWith(".xlsx")
-      ? safeName
-      : `${safeName}.xlsx`;
-
-    const message = [
-      `Create a new Excel file named "${fileName}".`,
-      dataType.trim() ? `Data type / category: ${dataType.trim()}.` : "",
-      `Requirements: ${createPrompt.trim()}`,
-      withSampleData
-        ? "Use the write_file tool to generate the file with realistic sample data (at least 8–15 rows) and clear column headers."
-        : "Use the write_file tool to create the file with an appropriate structure and a few example rows.",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    setIsProcessing(true);
-    setActiveTab("ai-chat");
-
-    try {
-      await sendMessage(
-        { text: message },
-        {
-          body: {
-            selectedModel,
-            uploadedFiles,
-          },
-        }
-      );
-      toast("Creating your sheet", {
-        description: "Watch progress in AI Assistant.",
-        className: "bg-green-800 border-green-700 text-white",
-        descriptionClassName: "text-green-100",
-        duration: 3000,
-        position: "bottom-right",
-      });
-    } catch (error) {
-      console.log("Create sheet error:", error);
-      toast("Failed to start creation", {
-        description:
-          error instanceof Error ? error.message : "Something went wrong.",
-        className: "bg-slate-800 border-slate-700 text-white",
-        descriptionClassName: "text-slate-300",
-        duration: 3000,
-        position: "bottom-right",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+  const chatPanelProps = {
+    messages: chat.messages,
+    status: chat.status,
+    messagesEndRef: chat.messagesEndRef,
+    models,
+    modelsLoading,
+    selectedModel,
+    setSelectedModel,
+    input: chat.input,
+    setInput: chat.setInput,
+    isLoading: chat.isLoading,
+    stop: chat.stop,
+    onSubmit: chat.processWithAI,
+    ttsEnabled: chat.ttsEnabled,
+    onToggleTts: chat.toggleTts,
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
-      {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800"
-      >
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <FileSpreadsheet className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Dashboard
-              </span>
-            </div>
-          </div>
-
-          <Badge variant="secondary" className="hidden sm:flex">
-            <Sparkles className="w-4 h-4 mr-1" />
-            AI Powered
-          </Badge>
-        </div>
-      </motion.header>
+      <DashboardHeader />
 
       <div className="container mx-auto px-4 py-4">
         <motion.div
@@ -491,7 +95,7 @@ export default function DashboardPage() {
 
         <Tabs
           value={activeTab}
-          onValueChange={handleTabChange}
+          onValueChange={setActiveTab}
           className="space-y-6"
         >
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
@@ -513,455 +117,27 @@ export default function DashboardPage() {
           </TabsList>
 
           <TabsContent value="upload" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
-              {/* File Upload */}
-              <motion.div
-                variants={slideIn}
-                initial="initial"
-                animate="animate"
-              >
-                <Card className="h-full">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Upload className="w-5 h-5" />
-                      Upload Excel Files
-                    </CardTitle>
-                    <CardDescription>
-                      Drag and drop your Excel files or click to browse
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <motion.div
-                      onClick={getRootProps().onClick}
-                      onKeyDown={getRootProps().onKeyDown}
-                      onFocus={getRootProps().onFocus}
-                      onBlur={getRootProps().onBlur}
-                      onDrop={getRootProps().onDrop}
-                      onDragOver={getRootProps().onDragOver}
-                      onDragEnter={getRootProps().onDragEnter}
-                      onDragLeave={getRootProps().onDragLeave}
-                      tabIndex={getRootProps().tabIndex}
-                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-300 ${
-                        isDragActive
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                          : "border-slate-300 dark:border-slate-700 hover:border-blue-400"
-                      }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <input {...getInputProps()} />
-                      <motion.div
-                        animate={{ y: isDragActive ? -5 : 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                        {isDragActive ? (
-                          <p className="text-blue-600 dark:text-blue-400 font-medium">
-                            Drop the files here...
-                          </p>
-                        ) : (
-                          <div>
-                            <p className="text-slate-600 dark:text-slate-300 mb-2">
-                              Drag & drop Excel files here, or click to select
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              Supports .xlsx, .xls, and .csv files
-                            </p>
-                          </div>
-                        )}
-                      </motion.div>
-                    </motion.div>
-
-                    <AnimatePresence>
-                      {(files.length > 0 || uploadedFiles.length > 0) && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="mt-4 space-y-2"
-                        >
-                          <Label className="text-sm font-medium">
-                            Uploaded Files:
-                          </Label>
-                          {isUploading && (
-                            <p className="text-xs text-slate-500">
-                              Uploading to server…
-                            </p>
-                          )}
-                          {uploadedFiles.map((file, index) => (
-                            <motion.div
-                              key={file.filename || index}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: index * 0.1 }}
-                              className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"
-                            >
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                              <span className="text-sm truncate">
-                                {file.originalName}
-                              </span>
-                              <Badge variant="secondary" className="text-xs">
-                                {(file.size / 1024).toFixed(1)} KB
-                              </Badge>
-                            </motion.div>
-                          ))}
-                          {files.length > uploadedFiles.length &&
-                            files.slice(uploadedFiles.length).map((file, index) => (
-                              <motion.div
-                                key={`pending-${index}`}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg opacity-70"
-                              >
-                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                                <span className="text-sm truncate">{file.name}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  uploading…
-                                </Badge>
-                              </motion.div>
-                            ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {/* AI Processing */}
-              <motion.div
-                variants={slideIn}
-                initial="initial"
-                animate="animate"
-                transition={{ delay: 0.1 }}
-              >
-                <Card className="h-full min-w-0">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <Brain className="w-5 h-5" />
-                          AI Processing
-                        </CardTitle>
-                        <CardDescription>
-                          Tell AI what you want to do with your data
-                        </CardDescription>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        onClick={() => setTtsEnabled((v) => !v)}
-                      >
-                        {ttsEnabled ? (
-                          <VolumeX className="w-4 h-4 mr-2" />
-                        ) : (
-                          <Volume2 className="w-4 h-4 mr-2" />
-                        )}
-                        {ttsEnabled ? "Mute responses" : "Read aloud"}
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 min-w-0">
-                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full min-w-0 mx-auto border rounded-lg p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto overflow-x-hidden break-words">
-                      <ChatMessages
-                        messages={messages}
-                        status={status}
-                        messagesEndRef={messagesEndRef}
-                      />
-                    </div>
-                    <form onSubmit={processWithAI} className="flex space-x-2">
-                      <div className="w-full">
-                        <TextArea
-                          models={models}
-                          modelsLoading={modelsLoading}
-                          selectedModel={selectedModel}
-                          setSelectedModel={setSelectedModel}
-                          setInput={setInput}
-                          input={input}
-                          isLoading={isLoading}
-                          status={status}
-                          stop={stop}
-                        />
-                      </div>
-                    </form>
-                    {/* <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        // onClick={processWithAI}
-                        disabled={isProcessing || !aiPrompt.trim()}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                      >
-                        {isProcessing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Process with AI
-                          </>
-                        )}
-                      </Button>
-                    </motion.div> */}
-
-                    <AnimatePresence>
-                      {aiResponse && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800"
-                        >
-                          <div className="flex items-start gap-2">
-                            <Brain className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                                AI Response:
-                              </Label>
-                              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                                {aiResponse}
-                              </p>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-
-            {/* Data Preview */}
-            <AnimatePresence>
-              {processedData.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <Table className="w-5 h-5" />
-                          Data Preview
-                        </CardTitle>
-                        <CardDescription>
-                          Preview of your processed data
-                        </CardDescription>
-                      </div>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Button
-                          onClick={downloadExcel}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download Excel
-                        </Button>
-                      </motion.div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse border border-slate-300 dark:border-slate-700">
-                          <thead>
-                            <tr className="bg-slate-100 dark:bg-slate-800">
-                              {Object.keys(processedData[0] || {}).map(
-                                (key) => (
-                                  <th
-                                    key={key}
-                                    className="border border-slate-300 dark:border-slate-700 px-4 py-2 text-left font-medium"
-                                  >
-                                    {key}
-                                  </th>
-                                )
-                              )}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {processedData.map((row, index) => (
-                              <motion.tr
-                                key={index}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                              >
-                                {Object.values(row).map((value, cellIndex) => (
-                                  <td
-                                    key={cellIndex}
-                                    className="border border-slate-300 dark:border-slate-700 px-4 py-2"
-                                  >
-                                    {String(value)}
-                                  </td>
-                                ))}
-                              </motion.tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <UploadTab
+              files={files}
+              uploadedFiles={uploadedFiles}
+              isUploading={isUploading}
+              isDragActive={isDragActive}
+              getRootProps={getRootProps}
+              getInputProps={getInputProps}
+              {...chatPanelProps}
+            />
           </TabsContent>
 
           <TabsContent value="create" className="space-y-6">
-            <motion.div variants={slideIn} initial="initial" animate="animate">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Plus className="w-5 h-5" />
-                    Create New Excel Sheet
-                  </CardTitle>
-                  <CardDescription>
-                    Generate new Excel files with AI assistance
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="sheet-name">Sheet Name</Label>
-                      <Input
-                        id="sheet-name"
-                        placeholder="My New Spreadsheet"
-                        className="mt-2"
-                        value={sheetName}
-                        onChange={(e) => setSheetName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="data-type">Data Type</Label>
-                      <Input
-                        id="data-type"
-                        placeholder="e.g., Employee Records, Sales Data"
-                        className="mt-2"
-                        value={dataType}
-                        onChange={(e) => setDataType(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="create-prompt">
-                      Describe what you want to create
-                    </Label>
-                    <Textarea
-                      id="create-prompt"
-                      placeholder="e.g., 'Create a monthly budget tracker with categories for income and expenses'"
-                      className="mt-2 min-h-[100px]"
-                      value={createPrompt}
-                      onChange={(e) => setCreatePrompt(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1"
-                    >
-                      <Button
-                        onClick={() => handleCreateSheet(false)}
-                        disabled={isLoading || isProcessing}
-                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                      >
-                        {isLoading || isProcessing ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Plus className="w-4 h-4 mr-2" />
-                        )}
-                        Create Sheet
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1"
-                    >
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => handleCreateSheet(true)}
-                        disabled={isLoading || isProcessing}
-                      >
-                        {isLoading || isProcessing ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Brain className="w-4 h-4 mr-2" />
-                        )}
-                        AI Generate
-                      </Button>
-                    </motion.div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+            <CreateTab
+              isLoading={chat.isLoading}
+              isProcessing={chat.isProcessing}
+              onCreateSheet={chat.handleCreateSheet}
+            />
           </TabsContent>
 
           <TabsContent value="ai-chat" className="space-y-6">
-            <motion.div variants={slideIn} initial="initial" animate="animate">
-              <Card className="min-w-0">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5" />
-                        AI Assistant
-                      </CardTitle>
-                      <CardDescription>
-                        Chat with AI about your Excel needs
-                      </CardDescription>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() => setTtsEnabled((v) => !v)}
-                    >
-                      {ttsEnabled ? (
-                        <VolumeX className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Volume2 className="w-4 h-4 mr-2" />
-                      )}
-                      {ttsEnabled ? "Mute responses" : "Read aloud"}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="min-w-0">
-                  <div className="space-y-2">
-                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full min-w-0 mx-auto border rounded-lg p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto overflow-x-hidden break-words">
-                      <ChatMessages
-                        messages={messages}
-                        status={status}
-                        messagesEndRef={messagesEndRef}
-                      />
-                    </div>
-                    <form onSubmit={processWithAI} className="flex space-x-2">
-                      <TextArea
-                        models={models}
-                        modelsLoading={modelsLoading}
-                        selectedModel={selectedModel}
-                        setSelectedModel={setSelectedModel}
-                        setInput={setInput}
-                        input={input}
-                        isLoading={isLoading}
-                        status={status}
-                        stop={stop}
-                      />
-                    </form>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+            <AiChatTab {...chatPanelProps} />
           </TabsContent>
         </Tabs>
       </div>
