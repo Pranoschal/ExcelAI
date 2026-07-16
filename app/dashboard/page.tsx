@@ -28,23 +28,14 @@ import {
   Loader2,
   CheckCircle,
   Home,
-  User,
-  Bot,
 } from "lucide-react";
 import Link from "next/link";
 import { useDropzone } from "react-dropzone";
 import { useChat } from "@ai-sdk/react";
-import Markdown from "react-markdown";
-import ToolsShowcase from "@/components/tool-displayer";
 import { toast } from "sonner";
 import { TextArea } from "@/components/customized-textarea";
-import {
-  DefaultChatTransport,
-  getToolName,
-  isToolUIPart,
-  type UIMessage,
-} from "ai";
-import { ReasoningMessagePart } from "@/components/reasoning";
+import { DefaultChatTransport } from "ai";
+import { ChatMessages } from "@/components/chat-messages";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -451,7 +442,7 @@ export default function DashboardPage() {
           </TabsList>
 
           <TabsContent value="upload" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
               {/* File Upload */}
               <motion.div
                 variants={slideIn}
@@ -572,7 +563,7 @@ export default function DashboardPage() {
                 animate="animate"
                 transition={{ delay: 0.1 }}
               >
-                <Card className="h-full">
+                <Card className="h-full min-w-0">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Brain className="w-5 h-5" />
@@ -582,92 +573,13 @@ export default function DashboardPage() {
                       Tell AI what you want to do with your data
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto break-words overflow-wrap-anywhere">
-                      {" "}
-                      {messages.map((message: UIMessage) => {
-                        return (
-                          <div
-                            key={message.id}
-                            className={`flex items-start gap-3 mb-4 ${
-                              message.role === "user"
-                                ? "justify-end"
-                                : "justify-start"
-                            }`}
-                          >
-                            {/* Avatar for user messages */}
-                            {message.role === "user" && (
-                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                <User className="w-4 h-4 text-white" />
-                              </div>
-                            )}
-
-                            {/* Avatar for non-user messages */}
-                            {message.role !== "user" && (
-                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                <Bot className="w-4 h-4 text-white" />
-                              </div>
-                            )}
-
-                            {/* Message bubble */}
-                            <div
-                              className={`rounded-lg p-3 max-w-[80%] ${
-                                message.role === "user"
-                                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
-                                  : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                              }`}
-                            >
-                              {/* Message header */}
-                              <div className="flex items-center mb-1">
-                                {message.role === "user" ? (
-                                  <User className="h-4 w-4 mr-2" />
-                                ) : (
-                                  <Brain className="h-4 w-4 mr-2" />
-                                )}
-                                <span className="font-semibold text-sm">
-                                  {message.role === "user"
-                                    ? "You"
-                                    : "AI Assistant"}
-                                </span>
-                              </div>
-                              {message.parts.map((part, index) => {
-                                  if (part.type === "reasoning") {
-                                    return (
-                                      <ReasoningMessagePart
-                                        key={`${message.id}-${index}`}
-                                        part={part}
-                                        isReasoning={
-                                          status === "streaming" &&
-                                          index === message.parts.length - 1
-                                        }
-                                      />
-                                    );
-                                  }
-                                  if (
-                                    isToolUIPart(part) &&
-                                    part.state === "output-available" &&
-                                    getToolName(part) === "showAllExcelTools"
-                                  ) {
-                                    return (
-                                      <div key={`${message.id}-${index}`}>
-                                        <ToolsShowcase />
-                                      </div>
-                                    );
-                                  }
-                                  if (part.type === "text" && part.text) {
-                                    return (
-                                      <Markdown key={`${message.id}-${index}`}>
-                                        {part.text}
-                                      </Markdown>
-                                    );
-                                  }
-                                  return null;
-                                })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
+                  <CardContent className="space-y-4 min-w-0">
+                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full min-w-0 mx-auto border rounded-lg p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto overflow-x-hidden break-words">
+                      <ChatMessages
+                        messages={messages}
+                        status={status}
+                        messagesEndRef={messagesEndRef}
+                      />
                     </div>
                     <form onSubmit={processWithAI} className="flex space-x-2">
                       <div className="w-full">
@@ -888,7 +800,7 @@ export default function DashboardPage() {
 
           <TabsContent value="ai-chat" className="space-y-6">
             <motion.div variants={slideIn} initial="initial" animate="animate">
-              <Card>
+              <Card className="min-w-0">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MessageSquare className="w-5 h-5" />
@@ -898,89 +810,14 @@ export default function DashboardPage() {
                     Chat with AI about your Excel needs
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="min-w-0">
                   <div className="space-y-2">
-                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full mx-auto border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto break-words overflow-wrap-anywhere">
-                      {" "}
-                      {messages.map((message: UIMessage) => {
-                        return (
-                          <div
-                            key={message.id}
-                            className={`flex items-start gap-3 mb-4 ${
-                              message.role === "user"
-                                ? "justify-end"
-                                : "justify-start"
-                            }`}
-                          >
-                            {message.role === "user" && (
-                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                <User className="w-4 h-4 text-white" />
-                              </div>
-                            )}
-
-                            {message.role !== "user" && (
-                              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                <Bot className="w-4 h-4 text-white" />
-                              </div>
-                            )}
-
-                            <div
-                              className={`rounded-lg p-3 max-w-[80%] ${
-                                message.role === "user"
-                                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
-                                  : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                              }`}
-                            >
-                              <div className="flex items-center mb-1">
-                                {message.role === "user" ? (
-                                  <User className="h-4 w-4 mr-2" />
-                                ) : (
-                                  <Brain className="h-4 w-4 mr-2" />
-                                )}
-                                <span className="font-semibold text-sm">
-                                  {message.role === "user"
-                                    ? "You"
-                                    : "AI Assistant"}
-                                </span>
-                              </div>
-                              {message.parts.map((part, index) => {
-                                  if (part.type === "reasoning") {
-                                    return (
-                                      <ReasoningMessagePart
-                                        key={`${message.id}-${index}`}
-                                        part={part}
-                                        isReasoning={
-                                          status === "streaming" &&
-                                          index === message.parts.length - 1
-                                        }
-                                      />
-                                    );
-                                  }
-                                  if (
-                                    isToolUIPart(part) &&
-                                    part.state === "output-available" &&
-                                    getToolName(part) === "showAllExcelTools"
-                                  ) {
-                                    return (
-                                      <div key={`${message.id}-${index}`}>
-                                        <ToolsShowcase />
-                                      </div>
-                                    );
-                                  }
-                                  if (part.type === "text" && part.text) {
-                                    return (
-                                      <Markdown key={`${message.id}-${index}`}>
-                                        {part.text}
-                                      </Markdown>
-                                    );
-                                  }
-                                  return null;
-                                })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
+                    <div className="h-[28vh] sm:h-[50vh] md:h-[47vh] lg:h-[42vh] xl:h-[38vh] 2xl:h-[35vh] w-full min-w-0 mx-auto border rounded-lg p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 overflow-y-auto overflow-x-hidden break-words">
+                      <ChatMessages
+                        messages={messages}
+                        status={status}
+                        messagesEndRef={messagesEndRef}
+                      />
                     </div>
                     <form onSubmit={processWithAI} className="flex space-x-2">
                       <TextArea

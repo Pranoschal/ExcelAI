@@ -90,7 +90,11 @@ const categoryColors = {
   "AI Features": "bg-pink-500/20 text-pink-300 border-pink-500/30",
 }
 
-export default function ToolsShowcase() {
+interface ToolsShowcaseProps {
+  embedded?: boolean
+}
+
+export default function ToolsShowcase({ embedded = false }: ToolsShowcaseProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
@@ -114,25 +118,31 @@ export default function ToolsShowcase() {
     },
   }
 
-  const itemVariants = {
-    hidden: {
-      opacity: 0,
-      y: 10,
-      scale: 0.95,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        stiffness: 100,
-        damping: 15,
-      },
-    },
-  }
+  const itemVariants = embedded
+    ? {
+        hidden: { opacity: 0, y: 8 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { stiffness: 100, damping: 15 },
+        },
+      }
+    : {
+        hidden: { opacity: 0, y: 10, scale: 0.95 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: { stiffness: 100, damping: 15 },
+        },
+      }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4 space-y-4 sm:space-y-6">
+    <div
+      className={`w-full min-w-0 mx-auto space-y-3 sm:space-y-4 ${
+        embedded ? "max-w-full px-0 py-1" : "max-w-7xl px-2 sm:px-4 py-4 sm:space-y-6"
+      }`}
+    >
       {/* Header */}
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
@@ -151,7 +161,7 @@ export default function ToolsShowcase() {
 
       {/* Search and Filters */}
       <div className="space-y-4">
-        <div className="relative max-w-md mx-auto">
+        <div className={`relative mx-auto w-full ${embedded ? "max-w-full" : "max-w-md"}`}>
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search tools..."
@@ -162,19 +172,18 @@ export default function ToolsShowcase() {
         </div>
 
         {/* Category Filter Tabs */}
-        <div className="flex flex-wrap justify-center gap-1 sm:gap-2 px-2">
+        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
           <Button
             variant={selectedCategory === null ? "default" : "secondary"}
             size="sm"
             onClick={() => setSelectedCategory(null)}
-            className={`h-7 sm:h-8 text-xs px-2 sm:px-3 transition-all duration-200 ${
+            className={`h-7 sm:h-8 text-xs px-2 sm:px-3 transition-all duration-200 shrink-0 ${
               selectedCategory === null
                 ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
                 : "bg-gray-700 hover:bg-gray-600 text-gray-300 border-gray-600"
             }`}
           >
-            <span className="hidden xs:inline">All</span>
-            <span className="xs:hidden">All</span>
+            All
             <span className="ml-1 text-xs opacity-75">({tools.length})</span>
           </Button>
           {categories.map((category) => {
@@ -186,14 +195,13 @@ export default function ToolsShowcase() {
                 variant={isSelected ? "default" : "secondary"}
                 size="sm"
                 onClick={() => setSelectedCategory(isSelected ? null : category)}
-                className={`h-7 sm:h-8 text-xs px-2 sm:px-3 transition-all duration-200 ${
+                className={`h-auto min-h-7 sm:min-h-8 text-xs px-2 sm:px-3 py-1 transition-all duration-200 max-w-full ${
                   isSelected
                     ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
                     : "bg-gray-700 hover:bg-gray-600 text-gray-300 border-gray-600"
                 }`}
               >
-                <span className="hidden sm:inline truncate max-w-24">{category}</span>
-                <span className="sm:hidden truncate max-w-16">{category.split(" ")[0]}</span>
+                <span className="truncate">{category}</span>
                 <span className="ml-1 text-xs opacity-75 flex-shrink-0">({categoryCount})</span>
               </Button>
             )
@@ -202,35 +210,38 @@ export default function ToolsShowcase() {
       </div>
 
       {/* Tools Grid */}
-      <div className="max-h-80 sm:max-h-96 overflow-y-auto overflow-x-hidden scrollbar-none px-1" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
-        <style jsx>{`
-          div::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
+      <div
+        className={`overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
+          embedded ? "max-h-72 sm:max-h-80" : "max-h-80 sm:max-h-96"
+        }`}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={`${searchTerm}-${selectedCategory}`}
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4"
+            className={`grid gap-3 sm:gap-4 min-w-0 ${
+              embedded
+                ? "grid-cols-1 md:grid-cols-2"
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            }`}
           >
           {filteredTools.map((tool) => {
             const IconComponent = categoryIcons[tool.category as keyof typeof categoryIcons]
             return (
-              <motion.div key={tool.name} variants={itemVariants} className="group h-full">
-                <Card className="bg-gray-800/50 border-gray-700 hover:border-gray-600 transition-all duration-200 hover:bg-gray-800/70 h-full flex flex-col">
-                  <CardHeader className="pb-2 sm:pb-3 flex-shrink-0 p-3 sm:p-4">
-                    <div className="flex items-start justify-between gap-2 mb-1 sm:mb-2">
+              <motion.div key={tool.name} variants={itemVariants} className="group h-full min-w-0">
+                <Card className="bg-gray-800/50 border-gray-700 hover:border-gray-600 transition-all duration-200 hover:bg-gray-800/70 h-full flex flex-col min-w-0 overflow-hidden">
+                  <CardHeader className="pb-2 sm:pb-3 flex-shrink-0 p-3 sm:p-4 space-y-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <div className="p-1 sm:p-1.5 rounded-md bg-gray-700/50 flex-shrink-0">
                         <IconComponent className="h-3 w-3 sm:h-4 sm:w-4 text-gray-300" />
                       </div>
                       <Badge
                         variant="outline"
-                        className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 flex-shrink-0 ${categoryColors[tool.category as keyof typeof categoryColors]}`}
+                        className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 min-w-0 max-w-full truncate ${categoryColors[tool.category as keyof typeof categoryColors]}`}
                       >
-                        <span className="truncate max-w-20 sm:max-w-none">{tool.category}</span>
+                        {tool.category}
                       </Badge>
                     </div>
                     <CardTitle className="text-xs sm:text-sm font-medium text-white leading-tight break-words">
@@ -265,7 +276,7 @@ export default function ToolsShowcase() {
 
       {/* Stats Footer */}
       <div className="text-center pt-2 sm:pt-4">
-        <div className="inline-flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-800/50 rounded-full border border-gray-700">
+        <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-4 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-800/50 rounded-full border border-gray-700 max-w-full">
           <div className="flex items-center gap-1 sm:gap-2">
             <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse" />
             <span className="text-xs sm:text-sm text-gray-300 whitespace-nowrap">
