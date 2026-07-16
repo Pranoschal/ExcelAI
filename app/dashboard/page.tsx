@@ -83,6 +83,9 @@ export default function DashboardPage() {
   const [processedData, setProcessedData] = useState<any[]>([]);
   const [aiResponse, setAiResponse] = useState("");
   const [input, setInput] = useState("");
+  const [sheetName, setSheetName] = useState("");
+  const [dataType, setDataType] = useState("");
+  const [createPrompt, setCreatePrompt] = useState("");
   const selectedModelRef = useRef(selectedModel);
   const uploadedFilesRef = useRef(uploadedFiles);
 
@@ -299,10 +302,16 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => {
-    setMessages([]);
-  }, [activeTab]);
+  const prevTabRef = useRef(activeTab);
 
+  useEffect(() => {
+    // Clear chat only when leaving the AI Assistant tab, so Create → AI
+    // handoff keeps the new generation request visible.
+    if (prevTabRef.current === "ai-chat" && activeTab !== "ai-chat") {
+      setMessages([]);
+    }
+    prevTabRef.current = activeTab;
+  }, [activeTab, setMessages]);
 
   // useEffect(() => {
   //   // Get the last message
@@ -362,13 +371,80 @@ export default function DashboardPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  const createNewSheet = () => {
-    const newData = [
-      { Column1: "Sample Data 1", Column2: "Value 1", Column3: 100 },
-      { Column1: "Sample Data 2", Column2: "Value 2", Column3: 200 },
-      { Column1: "Sample Data 3", Column2: "Value 3", Column3: 300 },
-    ];
-    setProcessedData(newData);
+  const handleCreateSheet = async (withSampleData: boolean) => {
+    if (!createPrompt.trim()) {
+      toast("Describe what you want to create", {
+        description: "Add a short description before creating a sheet.",
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      return;
+    }
+
+    if (isLoading) {
+      toast("Please wait", {
+        description: "The AI is still working on a previous request.",
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 3000,
+        position: "bottom-right",
+      });
+      return;
+    }
+
+    const safeName = (sheetName.trim() || "new-sheet")
+      .replace(/[<>:"/\\|?*]/g, "-")
+      .replace(/\s+/g, "-");
+    const fileName = safeName.toLowerCase().endsWith(".xlsx")
+      ? safeName
+      : `${safeName}.xlsx`;
+
+    const message = [
+      `Create a new Excel file named "${fileName}".`,
+      dataType.trim() ? `Data type / category: ${dataType.trim()}.` : "",
+      `Requirements: ${createPrompt.trim()}`,
+      withSampleData
+        ? "Use the write_file tool to generate the file with realistic sample data (at least 8–15 rows) and clear column headers."
+        : "Use the write_file tool to create the file with an appropriate structure and a few example rows.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    setIsProcessing(true);
+    setActiveTab("ai-chat");
+
+    try {
+      await sendMessage(
+        { text: message },
+        {
+          body: {
+            selectedModel,
+            uploadedFiles,
+          },
+        }
+      );
+      toast("Creating your sheet", {
+        description: "Watch progress in AI Assistant.",
+        className: "bg-green-800 border-green-700 text-white",
+        descriptionClassName: "text-green-100",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    } catch (error) {
+      console.log("Create sheet error:", error);
+      toast("Failed to start creation", {
+        description:
+          error instanceof Error ? error.message : "Something went wrong.",
+        className: "bg-slate-800 border-slate-700 text-white",
+        descriptionClassName: "text-slate-300",
+        duration: 3000,
+        position: "bottom-right",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -744,6 +820,8 @@ export default function DashboardPage() {
                         id="sheet-name"
                         placeholder="My New Spreadsheet"
                         className="mt-2"
+                        value={sheetName}
+                        onChange={(e) => setSheetName(e.target.value)}
                       />
                     </div>
                     <div>
@@ -752,6 +830,8 @@ export default function DashboardPage() {
                         id="data-type"
                         placeholder="e.g., Employee Records, Sales Data"
                         className="mt-2"
+                        value={dataType}
+                        onChange={(e) => setDataType(e.target.value)}
                       />
                     </div>
                   </div>
@@ -764,10 +844,11 @@ export default function DashboardPage() {
                       id="create-prompt"
                       placeholder="e.g., 'Create a monthly budget tracker with categories for income and expenses'"
                       className="mt-2 min-h-[100px]"
+                      value={createPrompt}
+                      onChange={(e) => setCreatePrompt(e.target.value)}
                     />
                   </div>
 
-                  {/* Alternative: Equal width buttons on all screens */}
                   <div className="flex flex-col sm:flex-row gap-4">
                     <motion.div
                       whileHover={{ scale: 1.02 }}
@@ -775,10 +856,15 @@ export default function DashboardPage() {
                       className="flex-1"
                     >
                       <Button
-                        onClick={createNewSheet}
+                        onClick={() => handleCreateSheet(false)}
+                        disabled={isLoading || isProcessing}
                         className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                       >
-                        <Plus className="w-4 h-4 mr-2" />
+                        {isLoading || isProcessing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4 mr-2" />
+                        )}
                         Create Sheet
                       </Button>
                     </motion.div>
@@ -787,8 +873,17 @@ export default function DashboardPage() {
                       whileTap={{ scale: 0.98 }}
                       className="flex-1"
                     >
-                      <Button variant="outline" className="w-full">
-                        <Brain className="w-4 h-4 mr-2" />
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => handleCreateSheet(true)}
+                        disabled={isLoading || isProcessing}
+                      >
+                        {isLoading || isProcessing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Brain className="w-4 h-4 mr-2" />
+                        )}
                         AI Generate
                       </Button>
                     </motion.div>

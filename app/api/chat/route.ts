@@ -93,7 +93,13 @@ export async function POST(req: NextRequest) {
       -  "Tell me a joke" → Decline
       -  "Write a story" → Decline
 
-      Never break character or act outside your role. Remain focused and helpful within the Excel domain.`;
+      Never break character or act outside your role. Remain focused and helpful within the Excel domain.
+
+      When you create or export a file with write_file, write_multi_sheet, or export_analysis:
+      - The file is uploaded to Supabase and the tool result includes downloadUrl, fileName, and storagePath.
+      - Tell the user their file is ready and they can click the Download button shown in the chat.
+      - Never tell users to open server filesystem paths like /opt/render/... or use SCP/SFTP.
+      - If upload fails, explain that Supabase may not be configured on the MCP server.`;
 
     if (uploadedFiles && uploadedFiles.length > 0) {
       const fileList = uploadedFiles
@@ -116,7 +122,7 @@ export async function POST(req: NextRequest) {
 
 These paths are storage object keys in Supabase. When calling Excel/CSV tools, pass the path value exactly as given (for example: 1784...-sales.csv). Do not invent local disk paths.`;
     } else {
-      systemMessage += `\n\nNo files are currently uploaded. Ask the user to upload Excel files (.xlsx, .xls, .csv) to get started with file analysis.`;
+      systemMessage += `\n\nNo files are currently uploaded. You can still create new Excel/CSV files using the write_file (or write_multi_sheet) tool when the user asks to generate or create a new sheet. Prefer creating the file rather than asking them to upload first. Only ask for an upload when they want to analyze or modify an existing file. After creation, direct the user to the Download button in chat.`;
     }
 
     const { modelId, reasoning } = await resolveChatModel(selectedModel);

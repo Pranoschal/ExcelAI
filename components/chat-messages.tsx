@@ -1,11 +1,8 @@
 "use client";
 
 import { Brain, Bot, User } from "lucide-react";
-import Markdown from "react-markdown";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
-import ToolsShowcase from "@/components/tool-displayer";
-import { ReasoningMessagePart } from "@/components/reasoning";
-import { markdownComponents } from "@/components/markdown-components";
+import { MessagePartRenderer } from "@/components/message-part-renderer";
 
 interface ChatMessagesProps {
   messages: UIMessage[];
@@ -70,48 +67,16 @@ export function ChatMessages({
                 </span>
               </div>
 
-              {message.parts.map((part, index) => {
-                if (part.type === "reasoning") {
-                  return (
-                    <ReasoningMessagePart
-                      key={`${message.id}-${index}`}
-                      part={part}
-                      isReasoning={
-                        status === "streaming" &&
-                        index === message.parts.length - 1
-                      }
-                    />
-                  );
-                }
-
-                if (
-                  isToolUIPart(part) &&
-                  part.state === "output-available" &&
-                  getToolName(part) === "showAllExcelTools"
-                ) {
-                  return (
-                    <div
-                      key={`${message.id}-${index}`}
-                      className="min-w-0 w-full overflow-hidden"
-                    >
-                      <ToolsShowcase embedded={isWideContent} />
-                    </div>
-                  );
-                }
-
-                if (part.type === "text" && part.text) {
-                  return (
-                    <Markdown
-                      key={`${message.id}-${index}`}
-                      components={markdownComponents}
-                    >
-                      {part.text}
-                    </Markdown>
-                  );
-                }
-
-                return null;
-              })}
+              {message.parts.map((part, index) => (
+                <MessagePartRenderer
+                  key={`${message.id}-${index}`}
+                  part={part}
+                  index={index}
+                  partsLength={message.parts.length}
+                  status={status}
+                  isWideContent={isWideContent}
+                />
+              ))}
             </div>
           </div>
         );
