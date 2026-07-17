@@ -12,6 +12,7 @@ import z from "zod";
 import { resolveChatModel } from "@/ai/groq-models";
 import { getLanguageModel } from "@/ai/providers";
 import { pingMcpHealth } from "@/lib/mcp-health";
+import { getCachedMcpToolDefinitions } from "@/lib/mcp-tool-cache";
 
 function hasMessageContent(message: ModelMessage): boolean {
   if (typeof message.content === "string") {
@@ -55,7 +56,8 @@ export async function POST(req: NextRequest) {
 
     let mcptools;
     try {
-      mcptools = await mcpClient.tools();
+      const toolDefinitions = await getCachedMcpToolDefinitions(mcpClient);
+      mcptools = mcpClient.toolsFromDefinitions(toolDefinitions);
     } catch (toolsError: unknown) {
       console.error("MCP Tools Error:", toolsError);
       const errorMessage =
