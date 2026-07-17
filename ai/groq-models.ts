@@ -6,6 +6,10 @@ import {
   resolveDefaultModel,
 } from "./model-config";
 import type { GroqModelInfo, GroqModelsResponse } from "./types";
+import { redis } from "@/lib/redis";
+
+const GROQ_MODELS_CACHE_KEY = "excelai:groq-models:v1";
+const GROQ_MODELS_CACHE_TTL_SECONDS = MODELS_CACHE_TTL_MS / 1000;
 
 interface GroqApiModel {
   id: string;
@@ -19,6 +23,57 @@ interface ModelsCache {
 }
 
 let modelsCache: ModelsCache | null = null;
+
+function isGroqModelsResponse(value: unknown): value is GroqModelsResponse {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("models" in value) ||
+    !Array.isArray(value.models) ||
+    !("defaultModel" in value) ||
+    typeof value.defaultModel !== "string"
+  ) {
+    return false;
+  }
+
+  return value.models.every(
+    (model) =>
+      typeof model === "object" &&
+      model !== null &&
+      "id" in model &&
+      typeof model.id === "string" &&
+      "label" in model &&
+      typeof model.label === "string" &&
+      "reasoning" in model &&
+      typeof model.reasoning === "boolean" &&
+      "preferred" in model &&
+      typeof model.preferred === "boolean"
+  );
+}
+
+async function getModelsFromRedis(): Promise<GroqModelsResponse | null> {
+  if (!redis) return null;
+
+  try {
+    const cachedModels = await redis.get<unknown>(GROQ_MODELS_CACHE_KEY);
+    return isGroqModelsResponse(cachedModels) ? cachedModels : null;
+  } catch (error) {
+    console.warn("Failed to read Groq models from Redis:", error);
+    return null;
+  }
+}
+
+async function cacheModelsInRedis(data: GroqModelsResponse): Promise<void> {
+  if (!redis) return;
+
+  try {
+    await redis.set(GROQ_MODELS_CACHE_KEY, data, {
+      ex: GROQ_MODELS_CACHE_TTL_SECONDS,
+    });
+  } catch (error) {
+    console.warn("Failed to cache Groq models in Redis:", error);
+  }
+}
 
 function sortModels(models: GroqModelInfo[]): GroqModelInfo[] {
   return [...models].sort((a, b) => {
@@ -84,8 +139,17 @@ export async function getGroqModels(
     return modelsCache.data;
   }
 
+  if (!forceRefresh) {
+    const cachedModels = await getModelsFromRedis();
+    if (cachedModels) {
+      modelsCache = { data: cachedModels, fetchedAt: Date.now() };
+      return cachedModels;
+    }
+  }
+
   const data = await fetchModelsFromGroq();
   modelsCache = { data, fetchedAt: Date.now() };
+  await cacheModelsInRedis(data);
   return data;
 }
 

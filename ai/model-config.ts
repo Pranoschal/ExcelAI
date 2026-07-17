@@ -29,7 +29,7 @@ export const REASONING_PATTERNS = [
   /kimi-k2/i,
 ];
 
-export const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
+export const MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function isReasoningModel(modelId: string): boolean {
   return REASONING_PATTERNS.some((pattern) => pattern.test(modelId));

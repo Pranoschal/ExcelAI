@@ -1,16 +1,8 @@
 import type { ListToolsResult, MCPClient } from "@ai-sdk/mcp";
-import { Redis } from "@upstash/redis";
+import { redis } from "@/lib/redis";
 
 const MCP_TOOLS_CACHE_KEY = "excelai:mcp-tools:v1";
 const MCP_TOOLS_CACHE_TTL_SECONDS = 24 * 60 * 60;
-
-const redis =
-  process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
-    ? new Redis({
-        url: process.env.KV_REST_API_URL,
-        token: process.env.KV_REST_API_TOKEN,
-      })
-    : null;
 
 function isListToolsResult(value: unknown): value is ListToolsResult {
   return (

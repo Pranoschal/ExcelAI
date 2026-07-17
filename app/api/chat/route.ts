@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
 import { resolveChatModel } from "@/ai/groq-models";
 import { getLanguageModel } from "@/ai/providers";
-import { pingMcpHealth } from "@/lib/mcp-health";
+import { pingMcpHealthWithCache } from "@/lib/mcp-health";
 import { getCachedMcpToolDefinitions } from "@/lib/mcp-tool-cache";
 
 function hasMessageContent(message: ModelMessage): boolean {
@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
       throw new Error("RENDER_MCP_URL environment variable is not set");
     }
 
-    const warmup = await pingMcpHealth(render_dot_com_url, { timeoutMs: 90_000 });
+    const warmup = await pingMcpHealthWithCache(render_dot_com_url, {
+      timeoutMs: 90_000,
+    });
     if (!warmup.ok) {
       console.warn("MCP warmup ping failed before chat:", warmup);
     }
