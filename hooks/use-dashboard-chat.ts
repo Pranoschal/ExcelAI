@@ -250,6 +250,14 @@ export function useDashboardChat({
     setIsProcessing(true);
     setActiveTab("ai-chat");
 
+    toast("Creating your sheet", {
+      description: "Watch progress in AI Assistant.",
+      className: "bg-green-800 border-green-700 text-white",
+      descriptionClassName: "text-green-100",
+      duration: 3000,
+      position: "bottom-right",
+    });
+
     try {
       await sendMessage(
         { text: message },
@@ -260,13 +268,6 @@ export function useDashboardChat({
           },
         }
       );
-      toast("Creating your sheet", {
-        description: "Watch progress in AI Assistant.",
-        className: "bg-green-800 border-green-700 text-white",
-        descriptionClassName: "text-green-100",
-        duration: 3000,
-        position: "bottom-right",
-      });
     } catch (error) {
       console.error("Create sheet error:", error);
       toast("Failed to start creation", {
